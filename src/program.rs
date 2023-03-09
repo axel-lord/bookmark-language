@@ -1,4 +1,4 @@
-use crate::{instruction::Instruction, variable, Error, Result, Value};
+use crate::{instruction::Instruction, variable, Result, Value};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
@@ -28,22 +28,20 @@ impl Program {
         while let Some(instruction) = instruction_stack.pop() {
             match instruction {
                 Instruction::Pure(instruction) => {
-                    return_value = instruction.perform(&variable_map)?
+                    return_value =
+                        instruction.perform(mem::take(&mut return_value), &variable_map)?
                 }
                 Instruction::Mutating(instruction) => {
-                    return_value = instruction.perform(&mut variable_map)?
+                    (return_value, variable_map) = instruction
+                        .perform(mem::take(&mut return_value), mem::take(&mut variable_map))?
                 }
-                Instruction::List(instruction_list) => {
-                    instruction_stack.extend(instruction_list.into_vec().into_iter().rev());
-                    return_value = Value::None;
+                Instruction::Meta(instruction) => {
+                    (return_value, variable_map, instruction_stack) = instruction.perform(
+                        mem::take(&mut return_value),
+                        mem::take(&mut variable_map),
+                        mem::take(&mut instruction_stack),
+                    )?;
                 }
-                Instruction::Assign(id) => {
-                    *variable_map.read_mut(id)? = mem::take(&mut return_value)
-                }
-                Instruction::Perform => match mem::take(&mut return_value) {
-                    Value::Instruction(instruction) => instruction_stack.push(instruction),
-                    value => return Err(Error::PerformOnNonInstruction(value)),
-                },
             }
         }
 

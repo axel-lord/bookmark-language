@@ -2,7 +2,7 @@ use crate::{instruction::Instruction, value::Value, variable, Result};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Program {
     pub variables: variable::Map,
     pub instruction: Instruction,

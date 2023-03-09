@@ -15,7 +15,7 @@ pub enum Instruction {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Pure {
     Debug,
-    Program(Box<Program>, variable::Id),
+    Program(Arc<Program>),
     Clone(variable::Id),
     Add(Value),
     Sub(Value),
@@ -33,13 +33,16 @@ pub enum Mutating {
 pub enum Meta {
     Return,
     Perform,
-    List(Box<[Instruction]>),
+    List(Vec<Instruction>),
 }
 
 impl Pure {
     pub fn perform(self, return_value: Value, variables: &variable::Map) -> Result<Value> {
         match self {
-            Pure::Program(program, id) => program.run(variables.read(id)?.clone()),
+            Pure::Program(mut program) => program
+                .pipe_ref_mut(Arc::make_mut)
+                .pipe(mem::take)
+                .run(return_value),
             Pure::Clone(id) => variables.read(id).cloned(),
             Pure::Add(value) => {
                 variables.maybe_read(return_value)? + variables.maybe_read(value)?
@@ -94,7 +97,7 @@ impl Meta {
                 value => Err(Error::PerformOnNonInstruction(value)),
             },
             Meta::List(list) => {
-                instruction_stack.extend(list.into_vec().into_iter().rev());
+                instruction_stack.extend(list.into_iter().rev());
                 Ok((Value::None, variables, instruction_stack))
             }
         }

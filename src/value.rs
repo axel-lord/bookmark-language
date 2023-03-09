@@ -46,7 +46,6 @@ impl Add<Value> for Value {
                 lhs.pipe_ref_mut(Arc::make_mut).pipe(mem::take),
                 rhs.pipe_ref_mut(Arc::make_mut).pipe(mem::take),
             ]
-            .into_boxed_slice()
             .pipe(instruction::Meta::List)
             .pipe(Instruction::Meta)
             .pipe(Arc::new)

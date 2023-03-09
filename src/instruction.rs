@@ -1,9 +1,12 @@
-use crate::{program::Program, variable, Error, Result, Value};
+use crate::{program::Program, value::Value, variable, Error, Result};
 use serde::{Deserialize, Serialize};
-use std::mem;
+use std::{mem, sync::Arc};
+use tap::Pipe;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub enum Instruction {
+    #[default]
+    Noop,
     Pure(Pure),
     Mutating(Mutating),
     Meta(Meta),
@@ -11,8 +14,13 @@ pub enum Instruction {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Pure {
+    Debug,
     Program(Box<Program>, variable::Id),
     Clone(variable::Id),
+    Add(Value),
+    Sub(Value),
+    Mul(Value),
+    Div(Value),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -29,10 +37,23 @@ pub enum Meta {
 }
 
 impl Pure {
-    pub fn perform(self, _return_value: Value, variables: &variable::Map) -> Result<Value> {
+    pub fn perform(self, return_value: Value, variables: &variable::Map) -> Result<Value> {
         match self {
             Pure::Program(program, id) => program.run(variables.read(id)?.clone()),
             Pure::Clone(id) => variables.read(id).cloned(),
+            Pure::Add(value) => {
+                variables.maybe_read(return_value)? + variables.maybe_read(value)?
+            }
+            Pure::Sub(value) => {
+                variables.maybe_read(return_value)? - variables.maybe_read(value)?
+            }
+            Pure::Mul(value) => {
+                variables.maybe_read(return_value)? * variables.maybe_read(value)?
+            }
+            Pure::Div(value) => {
+                variables.maybe_read(return_value)? / variables.maybe_read(value)?
+            }
+            Pure::Debug => println!("{return_value:#?}").pipe(|_| Ok(return_value)),
         }
     }
 }
@@ -66,8 +87,8 @@ impl Meta {
                 Ok((return_value, variables, instruction_stack))
             }
             Meta::Perform => match return_value {
-                Value::Instruction(instruction) => {
-                    instruction_stack.push(instruction);
+                Value::Instruction(mut instruction) => {
+                    instruction_stack.push(instruction.pipe_ref_mut(Arc::make_mut).pipe(mem::take));
                     Ok((Value::None, variables, instruction_stack))
                 }
                 value => Err(Error::PerformOnNonInstruction(value)),

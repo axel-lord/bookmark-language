@@ -21,6 +21,7 @@ pub enum Pure {
     Sub(Value),
     Mul(Value),
     Div(Value),
+    Value(Value),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -32,7 +33,7 @@ pub enum Mutating {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Meta {
     Return,
-    Perform,
+    Perform(Value),
     List(Vec<Instruction>),
 }
 
@@ -57,6 +58,7 @@ impl Pure {
                 variables.maybe_read(return_value)? / variables.maybe_read(value)?
             }
             Pure::Debug => println!("{return_value:#?}").pipe(|_| Ok(return_value)),
+            Pure::Value(value) => Ok(value),
         }
     }
 }
@@ -89,8 +91,14 @@ impl Meta {
                 instruction_stack.clear();
                 Ok((return_value, variables, instruction_stack))
             }
-            Meta::Perform => match return_value {
+            Meta::Perform(value) => match return_value {
                 Value::Instruction(mut instruction) => {
+                    instruction_stack.push(
+                        variables
+                            .maybe_read(value)?
+                            .pipe(Pure::Value)
+                            .pipe(Instruction::Pure),
+                    );
                     instruction_stack.push(instruction.pipe_ref_mut(Arc::make_mut).pipe(mem::take));
                     Ok((Value::None, variables, instruction_stack))
                 }

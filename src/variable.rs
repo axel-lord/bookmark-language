@@ -1,14 +1,8 @@
-use crate::{Error, Result, Value};
+use crate::{value::Value, Error, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct Id(usize);
-
-impl Id {
-    pub fn input() -> Self {
-        Self(0)
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Map(Box<[Value]>);
@@ -20,6 +14,14 @@ impl Map {
 
     pub fn read_mut(&mut self, id: Id) -> Result<&mut Value> {
         self.0.get_mut(id.0).ok_or(Error::UnknownVariable(id))
+    }
+
+    pub fn maybe_read(&self, value: Value) -> Result<Value> {
+        if let Value::Id(id) = value {
+            self.read(id).cloned()
+        } else {
+            Ok(value)
+        }
     }
 }
 
@@ -33,16 +35,19 @@ impl Default for MapBuilder {
 }
 
 impl MapBuilder {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn push(&mut self, init: Value) -> Id {
+    #[must_use]
+    pub fn insert(&mut self, init: Value) -> Id {
         let id = Id(self.0.len());
         self.0.push(init);
         id
     }
 
+    #[must_use]
     pub fn build(self) -> Map {
         Map(self.0.into_boxed_slice())
     }

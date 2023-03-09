@@ -1,4 +1,4 @@
-use crate::{instruction::Instruction, variable, Result, Value};
+use crate::{instruction::Instruction, value::Value, variable, Result};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
@@ -17,12 +17,9 @@ impl Program {
         } = self;
 
         // Program state
-        let mut return_value = Value::None;
+        let mut return_value = input; // Input is stored as first return value
         let mut instruction_stack = vec![instruction];
         let mut variable_map = variables;
-
-        // Map input to input variable
-        *variable_map.read_mut(variable::Id::input())? = input;
 
         // Pop and execute instructions
         while let Some(instruction) = instruction_stack.pop() {
@@ -42,6 +39,7 @@ impl Program {
                         mem::take(&mut instruction_stack),
                     )?;
                 }
+                Instruction::Noop => (),
             }
         }
 

@@ -7,6 +7,8 @@ pub enum Mutating {
     Take(variable::Id),
     Assign(variable::Id),
     Swap(variable::Id),
+    GetTake(variable::Id),
+    MapAssignTo { map: variable::Id, key: Value },
 }
 
 impl Mutating {
@@ -25,6 +27,16 @@ impl Mutating {
                 mem::replace(variables.read_mut(id)?, return_value),
                 variables,
             )),
+            Mutating::MapAssignTo { map, key } => {
+                let key = variables.maybe_read(key)?;
+                *variables.read_mut(map)?.get_mut(key)? = return_value;
+                Ok((Value::None, variables))
+            }
+            Mutating::GetTake(id) => {
+                let key = variables.maybe_read(return_value)?;
+                let value = variables.read_mut(id)?.get_take(key)?;
+                Ok((value, variables))
+            }
         }
     }
 }

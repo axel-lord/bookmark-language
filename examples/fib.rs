@@ -14,20 +14,20 @@ fn main() -> Result<()> {
 
     let a = v_builder.insert_rw(1.into());
     let b = v_builder.insert_rw(1.into());
-    let t = v_builder.reserve_rw();
     let l = v_builder.reserve_ro();
+
+    let sleep_print_1 = instruction_list![
+        Pure::Value(sleep_duration.clone()),
+        Pure::Sleep,
+        Pure::value(1),
+        Pure::Debug,
+    ];
 
     p_builder.push_instruction(instruction_list![
         Pure::value("starting seq"),
         Pure::Debug,
-        Pure::Value(sleep_duration.clone()),
-        Pure::Sleep,
-        Pure::value(1),
-        Pure::Debug,
-        Pure::Value(sleep_duration.clone()),
-        Pure::Sleep,
-        Pure::value(1),
-        Pure::Debug,
+        sleep_print_1.clone(),
+        sleep_print_1,
         Pure::Clone(l),
         Meta::Perform(Value::None),
     ]);
@@ -38,11 +38,8 @@ fn main() -> Result<()> {
         Mutating::Take(a),
         Pure::Add(Value::Id(b)),
         Pure::Debug,
-        Mutating::Assign(t),
-        Mutating::Take(b),
-        Mutating::Assign(a),
-        Mutating::Take(t),
-        Mutating::Assign(b),
+        Mutating::Swap(b),
+        Mutating::Swap(a),
         Pure::Clone(l),
         Meta::Perform(Value::None),
     ];

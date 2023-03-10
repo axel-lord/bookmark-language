@@ -29,6 +29,7 @@ pub enum Pure {
 pub enum Mutating {
     Take(variable::Id),
     Assign(variable::Id),
+    Swap(variable::Id),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -93,6 +94,10 @@ impl Mutating {
                 *variables.read_mut(id)? = return_value;
                 Ok((Value::None, variables))
             }
+            Mutating::Swap(id) => Ok((
+                mem::replace(variables.read_mut(id)?, return_value),
+                variables,
+            )),
         }
     }
 }

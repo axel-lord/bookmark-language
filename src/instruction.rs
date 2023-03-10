@@ -1,6 +1,6 @@
 use crate::{program::Program, value::Value, variable, Error, Result};
 use serde::{Deserialize, Serialize};
-use std::{mem, sync::Arc};
+use std::{mem, sync::Arc, thread, time::Duration};
 use tap::Pipe;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -15,6 +15,7 @@ pub enum Instruction {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Pure {
     Debug,
+    Sleep,
     Program(Arc<Program>),
     Clone(variable::Id),
     Add(Value),
@@ -34,6 +35,8 @@ pub enum Mutating {
 pub enum Meta {
     Return,
     Perform(Value),
+    PerformClone(variable::Id),
+    PerformTake(variable::Id),
     List(Vec<Instruction>),
 }
 
@@ -59,7 +62,22 @@ impl Pure {
             }
             Pure::Debug => println!("{return_value:#?}").pipe(|_| Ok(return_value)),
             Pure::Value(value) => Ok(value),
+            Pure::Sleep => {
+                if let Value::Float(duration) = return_value {
+                    thread::sleep(Duration::from_secs_f64(duration));
+                    Ok(Value::None)
+                } else {
+                    Err(Error::WrongInstructionInput(
+                        return_value,
+                        Instruction::Pure(Pure::Sleep),
+                    ))
+                }
+            }
         }
+    }
+
+    pub fn value(value: impl Into<Value>) -> Self {
+        Self::Value(value.into())
     }
 }
 
@@ -83,7 +101,7 @@ impl Meta {
     pub fn perform(
         self,
         return_value: Value,
-        variables: variable::Map,
+        mut variables: variable::Map,
         mut instruction_stack: Vec<Instruction>,
     ) -> Result<(Value, variable::Map, Vec<Instruction>)> {
         match self {
@@ -93,11 +111,28 @@ impl Meta {
             }
             Meta::Perform(value) => match return_value {
                 Value::Instruction(mut instruction) => {
+                    instruction_stack.push(Pure::Value(value).into());
+                    instruction_stack.push(instruction.pipe_ref_mut(Arc::make_mut).pipe(mem::take));
+                    Ok((Value::None, variables, instruction_stack))
+                }
+                value => Err(Error::PerformOnNonInstruction(value)),
+            },
+            Meta::PerformClone(value) => match return_value {
+                Value::Instruction(mut instruction) => {
+                    instruction_stack.push(variables.read(value)?.clone().pipe(Pure::Value).into());
+                    instruction_stack.push(instruction.pipe_ref_mut(Arc::make_mut).pipe(mem::take));
+                    Ok((Value::None, variables, instruction_stack))
+                }
+                value => Err(Error::PerformOnNonInstruction(value)),
+            },
+            Meta::PerformTake(value) => match return_value {
+                Value::Instruction(mut instruction) => {
                     instruction_stack.push(
                         variables
-                            .maybe_read(value)?
+                            .read_mut(value)?
+                            .pipe(mem::take)
                             .pipe(Pure::Value)
-                            .pipe(Instruction::Pure),
+                            .into(),
                     );
                     instruction_stack.push(instruction.pipe_ref_mut(Arc::make_mut).pipe(mem::take));
                     Ok((Value::None, variables, instruction_stack))
@@ -110,4 +145,29 @@ impl Meta {
             }
         }
     }
+}
+
+impl From<Pure> for Instruction {
+    fn from(value: Pure) -> Self {
+        Instruction::Pure(value)
+    }
+}
+
+impl From<Meta> for Instruction {
+    fn from(value: Meta) -> Self {
+        Instruction::Meta(value)
+    }
+}
+
+impl From<Mutating> for Instruction {
+    fn from(value: Mutating) -> Self {
+        Instruction::Mutating(value)
+    }
+}
+
+#[macro_export]
+macro_rules! instruction_list {
+    ($($inst:expr),* $(,)?) => {
+        $crate::instruction::Instruction::Meta($crate::instruction::Meta::List(vec![$($inst.into()),*]))
+    };
 }

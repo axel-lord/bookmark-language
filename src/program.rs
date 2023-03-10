@@ -1,11 +1,15 @@
-use crate::{instruction::Instruction, value::Value, variable, Result};
+use crate::{
+    instruction::{self, Instruction},
+    value::Value,
+    variable, Result,
+};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Program {
-    pub variables: variable::Map,
-    pub instruction: Instruction,
+    variables: variable::Map,
+    instruction: Instruction,
 }
 
 impl Program {
@@ -44,5 +48,38 @@ impl Program {
         }
 
         Ok(return_value)
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct ProgramBuilder {
+    instruction_vec: Vec<Instruction>,
+}
+
+impl ProgramBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn push_instruction(&mut self, instruction: Instruction) -> &mut Self {
+        self.instruction_vec.push(instruction);
+        self
+    }
+
+    pub fn build(self, variable_map: variable::Map) -> Program {
+        let ProgramBuilder {
+            mut instruction_vec,
+        } = self;
+
+        Program {
+            variables: variable_map,
+            instruction: match instruction_vec.len() {
+                0 => Instruction::Noop,
+                1 => instruction_vec
+                    .pop()
+                    .expect("since we now the length is 1 pop should always succeed"),
+                _ => Instruction::Meta(instruction::Meta::List(instruction_vec)),
+            },
+        }
     }
 }

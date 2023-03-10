@@ -4,6 +4,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     mem,
     ops::{Add, Div, Mul, Sub},
@@ -30,6 +31,12 @@ pub enum Operation {
     Sub,
     Mul,
     Div,
+}
+
+impl Value {
+    pub fn string(value: impl Into<Arc<str>>) -> Self {
+        Self::String(value.into())
+    }
 }
 
 impl Add<Value> for Value {
@@ -101,5 +108,66 @@ impl Div<Value> for Value {
             [lhs, rhs] => return Error::UnsuppurtedOperation(Operation::Div, lhs, rhs).pipe(Err),
         }
         .pipe(Ok)
+    }
+}
+
+// Value from impls
+impl From<i64> for Value {
+    fn from(value: i64) -> Self {
+        Self::Int(value)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Self::Float(value)
+    }
+}
+
+impl From<Instruction> for Value {
+    fn from(value: Instruction) -> Self {
+        Self::Instruction(Arc::new(value))
+    }
+}
+
+impl From<Arc<Instruction>> for Value {
+    fn from(value: Arc<Instruction>) -> Self {
+        Self::Instruction(value)
+    }
+}
+
+impl From<&Arc<Instruction>> for Value {
+    fn from(value: &Arc<Instruction>) -> Self {
+        Self::Instruction(Arc::clone(value))
+    }
+}
+
+impl From<Arc<str>> for Value {
+    fn from(value: Arc<str>) -> Self {
+        Self::String(value)
+    }
+}
+
+impl From<&Arc<str>> for Value {
+    fn from(value: &Arc<str>) -> Self {
+        Self::String(Arc::clone(value))
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::String(value.into())
+    }
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::String(value.into())
+    }
+}
+
+impl From<Cow<'_, str>> for Value {
+    fn from(value: Cow<'_, str>) -> Self {
+        Self::String(value.into())
     }
 }

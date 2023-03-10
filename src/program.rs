@@ -10,16 +10,11 @@ use std::mem;
 pub struct Program {
     variables: variable::Map,
     instruction: Instruction,
+    is_fallible: bool,
 }
 
 impl Program {
-    pub fn run(self, input: Value) -> Result<Value> {
-        // Destructure self
-        let Self {
-            variables,
-            instruction,
-        } = self;
-
+    fn try_run(input: Value, variables: variable::Map, instruction: Instruction) -> Result<Value> {
         // Program state
         let mut return_value = input; // Input is stored as first return value
         let mut instruction_stack = vec![instruction];
@@ -49,11 +44,44 @@ impl Program {
 
         Ok(return_value)
     }
+
+    pub fn run(self, input: Value) -> Result<Value> {
+        let Self {
+            variables,
+            instruction,
+            is_fallible: fallible,
+        } = self;
+
+        if fallible {
+            Self::try_run(input, variables, instruction).or(Ok(Value::None))
+        } else {
+            Self::try_run(input, variables, instruction)
+        }
+    }
+
+    pub fn into_fallible(self) -> Self {
+        Self {
+            is_fallible: true,
+            ..self
+        }
+    }
+
+    pub fn into_infallible(self) -> Self {
+        Self {
+            is_fallible: false,
+            ..self
+        }
+    }
+
+    pub fn is_fallible(&self) -> bool {
+        self.is_fallible
+    }
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct ProgramBuilder {
     instruction_vec: Vec<Instruction>,
+    is_fallible: bool,
 }
 
 impl ProgramBuilder {
@@ -66,12 +94,19 @@ impl ProgramBuilder {
         self
     }
 
+    pub fn is_fallible(&mut self, is_fallible: bool) -> &mut Self {
+        self.is_fallible = is_fallible;
+        self
+    }
+
     pub fn build(self, variable_map: variable::Map) -> Program {
         let ProgramBuilder {
             mut instruction_vec,
+            is_fallible,
         } = self;
 
         Program {
+            is_fallible,
             variables: variable_map,
             instruction: match instruction_vec.len() {
                 0 => Instruction::Noop,

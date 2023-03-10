@@ -44,7 +44,14 @@ impl Add<Value> for Value {
 
     fn add(self, rhs: Value) -> Self::Output {
         match [self, rhs] {
-            [Value::Int(lhs), Value::Int(rhs)] => lhs.saturating_add(rhs).pipe(Value::Int),
+            [Value::Int(lhs), Value::Int(rhs)] => lhs
+                .checked_add(rhs)
+                .ok_or(Error::IntegerOverOrUnderFlow {
+                    op: Operation::Add,
+                    lhs: lhs.into(),
+                    rhs: rhs.into(),
+                })?
+                .pipe(Value::Int),
             [Value::Float(lhs), Value::Float(rhs)] => Value::Float(lhs + rhs),
             [Value::String(lhs), Value::String(rhs)] => {
                 Value::String(lhs.to_string().add(&rhs).into_boxed_str().into())
@@ -74,7 +81,14 @@ impl Sub<Value> for Value {
 
     fn sub(self, rhs: Value) -> Self::Output {
         match [self, rhs] {
-            [Value::Int(lhs), Value::Int(rhs)] => lhs.saturating_sub(rhs).pipe(Value::Int),
+            [Value::Int(lhs), Value::Int(rhs)] => lhs
+                .checked_sub(rhs)
+                .ok_or(Error::IntegerOverOrUnderFlow {
+                    op: Operation::Sub,
+                    lhs: lhs.into(),
+                    rhs: rhs.into(),
+                })?
+                .pipe(Value::Int),
             [Value::Float(lhs), Value::Float(rhs)] => Value::Float(rhs - lhs),
             [lhs, rhs] => return Error::UnsuppurtedOperation(Operation::Sub, lhs, rhs).pipe(Err),
         }
@@ -87,7 +101,14 @@ impl Mul<Value> for Value {
 
     fn mul(self, rhs: Value) -> Self::Output {
         match [self, rhs] {
-            [Value::Int(lhs), Value::Int(rhs)] => lhs.saturating_mul(rhs).pipe(Value::Int),
+            [Value::Int(lhs), Value::Int(rhs)] => lhs
+                .checked_mul(rhs)
+                .ok_or(Error::IntegerOverOrUnderFlow {
+                    op: Operation::Mul,
+                    lhs: lhs.into(),
+                    rhs: rhs.into(),
+                })?
+                .pipe(Value::Int),
             [Value::Float(lhs), Value::Float(rhs)] => Value::Float(rhs * lhs),
             [lhs, rhs] => return Error::UnsuppurtedOperation(Operation::Mul, lhs, rhs).pipe(Err),
         }
@@ -103,7 +124,14 @@ impl Div<Value> for Value {
             [Value::Int(lhs), Value::Int(0)] => {
                 return Error::ZeroDiv(Value::Int(lhs), Value::Int(0)).pipe(Err)
             }
-            [Value::Int(lhs), Value::Int(rhs)] => lhs.saturating_div(rhs).pipe(Value::Int),
+            [Value::Int(lhs), Value::Int(rhs)] => lhs
+                .checked_div(rhs)
+                .ok_or(Error::IntegerOverOrUnderFlow {
+                    op: Operation::Div,
+                    lhs: lhs.into(),
+                    rhs: rhs.into(),
+                })?
+                .pipe(Value::Int),
             [Value::Float(lhs), Value::Float(rhs)] => Value::Float(rhs / lhs),
             [lhs, rhs] => return Error::UnsuppurtedOperation(Operation::Div, lhs, rhs).pipe(Err),
         }

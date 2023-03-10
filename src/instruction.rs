@@ -1,10 +1,11 @@
+use derive_more::IsVariant;
 use serde::{Deserialize, Serialize};
 
 mod meta;
 mod mutating;
 mod pure;
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default, IsVariant)]
 pub enum Instruction {
     #[default]
     Noop,

@@ -2,30 +2,35 @@ use crate::{
     instruction::{self, Instruction},
     variable, Error, Result,
 };
+use derive_more::IsVariant;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     collections::BTreeMap,
-    mem,
     ops::{Add, Div, Mul, Sub},
     sync::Arc,
 };
+use strum::EnumDiscriminants;
 use tap::{Pipe, Tap};
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, EnumDiscriminants, IsVariant)]
+#[strum_discriminants(name(Type), derive(Serialize, Deserialize, Default, IsVariant))]
 pub enum Value {
+    Bool(bool),
     Int(i64),
     Float(f64),
     String(Arc<str>),
     Id(variable::Id),
-    Instruction(Arc<Instruction>),
+    Instruction(Box<Instruction>),
     List(Vec<Value>),
     Map(BTreeMap<Arc<str>, Value>),
+    Type(Type),
+    #[strum_discriminants(default)]
     #[default]
     None,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, IsVariant)]
 pub enum Operation {
     Add,
     Sub,
@@ -36,6 +41,57 @@ pub enum Operation {
 impl Value {
     pub fn string(value: impl Into<Arc<str>>) -> Self {
         Self::String(value.into())
+    }
+
+    pub fn cast(self, to: Type) -> Result<Self> {
+        if Type::from(&self) == to {
+            return Ok(self);
+        }
+
+        match (self, to) {
+            (_, Type::None) => Ok(Value::None),
+            (value, Type::Type) => Ok(Value::Type(Type::from(value))),
+
+            (Value::Int(value), Type::Float) => Ok(Value::Float(value as f64)),
+            (Value::Float(value), Type::Int) => Ok(Value::Int(value.round() as i64)),
+
+            (Value::Int(value), Type::Bool) => Ok(Value::Bool(value != 0)),
+            (Value::Float(value), Type::Bool) => {
+                Ok(Value::Bool((value.abs() == 0.0) || value.is_nan()))
+            }
+            (Value::String(value), Type::Bool) => Ok(Value::Bool(!value.is_empty())),
+            (Value::Instruction(value), Type::Bool) => Ok(Value::Bool(!value.is_noop())),
+            (Value::List(value), Type::Bool) => Ok(Value::Bool(!value.is_empty())),
+            (Value::Map(value), Type::Bool) => Ok(Value::Bool(!value.is_empty())),
+            (Value::None, Type::Bool) => Ok(Value::Bool(false)),
+
+            (Value::Bool(value), Type::String) => Ok(Value::String(value.to_string().into())),
+            (Value::Int(value), Type::String) => Ok(Value::String(value.to_string().into())),
+            (Value::Float(value), Type::String) => Ok(Value::String(value.to_string().into())),
+
+            (value, to) => Err(Error::InvalidCast(Type::from(&value), to, value)),
+        }
+    }
+
+    pub fn parse(self, to: Type) -> Result<Self> {
+        let Value::String(from) = self else {
+            return Err(Error::NonStringParse(self));
+        };
+
+        if to.is_string() {
+            return Ok(Value::String(from));
+        }
+
+        fn err<T>(to: Type, from: Arc<str>) -> impl Fn(T) -> Error {
+            move |_| Error::FailedParse(to, Value::String(from.clone()))
+        }
+
+        match to {
+            Type::Bool => from.parse().map(Value::Bool).map_err(err(to, from)),
+            Type::Int => from.parse().map(Value::Int).map_err(err(to, from)),
+            Type::Float => from.parse().map(Value::Float).map_err(err(to, from)),
+            ty => Err(Error::InvalidParse(ty)),
+        }
     }
 }
 
@@ -56,14 +112,11 @@ impl Add<Value> for Value {
             [Value::String(lhs), Value::String(rhs)] => {
                 Value::String(lhs.to_string().add(&rhs).into_boxed_str().into())
             }
-            [Value::Instruction(mut lhs), Value::Instruction(mut rhs)] => vec![
-                lhs.pipe_ref_mut(Arc::make_mut).pipe(mem::take),
-                rhs.pipe_ref_mut(Arc::make_mut).pipe(mem::take),
-            ]
-            .pipe(instruction::Meta::List)
-            .pipe(Instruction::Meta)
-            .pipe(Arc::new)
-            .pipe(Value::Instruction),
+            [Value::Instruction(lhs), Value::Instruction(rhs)] => vec![*lhs, *rhs]
+                .pipe(instruction::Meta::List)
+                .pipe(Instruction::Meta)
+                .pipe(Box::new)
+                .pipe(Value::Instruction),
             [Value::List(lhs), Value::List(rhs)] => lhs
                 .tap_mut(|lhs| lhs.extend(rhs.into_iter()))
                 .pipe(Value::List),
@@ -154,19 +207,13 @@ impl From<f64> for Value {
 
 impl From<Instruction> for Value {
     fn from(value: Instruction) -> Self {
-        Self::Instruction(Arc::new(value))
+        Self::Instruction(Box::new(value))
     }
 }
 
-impl From<Arc<Instruction>> for Value {
-    fn from(value: Arc<Instruction>) -> Self {
+impl From<Box<Instruction>> for Value {
+    fn from(value: Box<Instruction>) -> Self {
         Self::Instruction(value)
-    }
-}
-
-impl From<&Arc<Instruction>> for Value {
-    fn from(value: &Arc<Instruction>) -> Self {
-        Self::Instruction(Arc::clone(value))
     }
 }
 
@@ -197,5 +244,23 @@ impl From<&str> for Value {
 impl From<Cow<'_, str>> for Value {
     fn from(value: Cow<'_, str>) -> Self {
         Self::String(value.into())
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Self::Bool(value)
+    }
+}
+
+impl From<Vec<Value>> for Value {
+    fn from(value: Vec<Value>) -> Self {
+        Self::List(value)
+    }
+}
+
+impl From<BTreeMap<Arc<str>, Value>> for Value {
+    fn from(value: BTreeMap<Arc<str>, Value>) -> Self {
+        Self::Map(value)
     }
 }

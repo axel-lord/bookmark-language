@@ -34,9 +34,6 @@ pub enum Error {
         rhs: Value,
     },
 
-    #[error("{key:?} is not a key/index of {map:?}")]
-    InvalidAcces { key: Value, map: Value },
-
     #[error("failed to cast {0:?} to {1:?}")]
     FailedCast(Value, value::Type),
 
@@ -51,6 +48,12 @@ pub enum Error {
 
     #[error("can only parse strings, value tried")]
     NonStringParse(Value),
+
+    #[error("{key:?} is not a key of {map:?}")]
+    InvalidAcces { key: Value, map: Value },
+
+    #[error("{0:?} is the wrong type of key used for access to type {1:?}")]
+    WrongKeyType(Value, value::Type),
 
     #[error("{0:?} cannot be used for {1:?}")]
     WrongInstructionInput(Value, Instruction),

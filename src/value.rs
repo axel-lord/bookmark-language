@@ -93,6 +93,79 @@ impl Value {
             ty => Err(Error::InvalidParse(ty)),
         }
     }
+
+    pub fn get(&self, key: Value) -> Result<&Value> {
+        match (self, key) {
+            (Value::Map(map), Value::String(key)) => {
+                map.get(&key).ok_or_else(|| Error::InvalidAcces {
+                    key: Value::String(key),
+                    map: Value::Map(map.clone()),
+                })
+            }
+            (Value::List(list), Value::Int(index)) => list
+                .get(
+                    TryInto::<usize>::try_into(index).map_err(|_| Error::InvalidAcces {
+                        key: Value::Int(index),
+                        map: Value::List(list.clone()),
+                    })?,
+                )
+                .ok_or_else(|| Error::InvalidAcces {
+                    key: Value::Int(index),
+                    map: Value::List(list.clone()),
+                }),
+            (map, key) => Err(Error::WrongKeyType(key, Type::from(map))),
+        }
+    }
+
+    pub fn get_mut(&mut self, key: Value) -> Result<&mut Value> {
+        match (self, key) {
+            (Value::Map(map), Value::String(key)) => {
+                map.get_mut(&key).ok_or_else(|| Error::InvalidAcces {
+                    key: Value::String(key),
+                    map: Value::Type(Type::Map),
+                })
+            }
+            (Value::List(list), Value::Int(index)) => list
+                .get_mut(
+                    TryInto::<usize>::try_into(index).map_err(|_| Error::InvalidAcces {
+                        key: Value::Int(index),
+                        map: Value::None,
+                    })?,
+                )
+                .ok_or_else(|| Error::InvalidAcces {
+                    key: Value::Int(index),
+                    map: Value::Type(Type::List),
+                }),
+            (map, key) => Err(Error::WrongKeyType(key, <Type as From<&Value>>::from(map))),
+        }
+    }
+
+    pub fn get_take(&mut self, key: Value) -> Result<Value> {
+        match (self, key) {
+            (Value::Map(ref mut map), Value::String(key)) => {
+                map.remove(&key).ok_or_else(|| Error::InvalidAcces {
+                    key: Value::String(key),
+                    map: Value::Type(Type::Map),
+                })
+            }
+            (Value::List(list), Value::Int(index)) => {
+                let index_usize =
+                    TryInto::<usize>::try_into(index).map_err(|_| Error::InvalidAcces {
+                        key: Value::Int(index),
+                        map: Value::None,
+                    })?;
+                if index_usize < list.len() {
+                    Ok(list.remove(index_usize))
+                } else {
+                    Err(Error::InvalidAcces {
+                        key: Value::Int(index),
+                        map: Value::Type(Type::List),
+                    })
+                }
+            }
+            (map, key) => Err(Error::WrongKeyType(key, <Type as From<&Value>>::from(map))),
+        }
+    }
 }
 
 impl Add<Value> for Value {

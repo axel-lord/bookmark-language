@@ -5,7 +5,7 @@ use crate::{
     variable, Error, Result,
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::TryInto, mem, sync::Arc, thread, time::Duration};
+use std::{mem, sync::Arc, thread, time::Duration};
 use tap::Pipe;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -86,27 +86,10 @@ impl Pure {
                     .pipe(Value::Instruction)
                     .pipe(Ok)
             }
-            Pure::GetClone(id) => match (return_value, variables.read(id)?) {
-                (Value::String(key), Value::Map(map)) => {
-                    map.get(&key).cloned().ok_or_else(|| Error::InvalidAcces {
-                        key: Value::String(key),
-                        map: Value::Map(map.clone()),
-                    })
-                }
-                (Value::Int(key), Value::List(map)) => map
-                    .get(
-                        TryInto::<usize>::try_into(key).map_err(|_| Error::InvalidAcces {
-                            key: Value::Int(key),
-                            map: Value::List(map.clone()),
-                        })?,
-                    )
-                    .ok_or_else(|| Error::InvalidAcces {
-                        key: Value::Int(key),
-                        map: Value::List(map.clone()),
-                    })
-                    .cloned(),
-                _ => todo!(),
-            },
+            Pure::GetClone(id) => variables
+                .read(id)?
+                .get(variables.maybe_read(return_value)?)
+                .cloned(),
             Pure::Cond { if_true, if_false } => {
                 if let Value::Bool(value) = return_value {
                     Ok(if value { if_true } else { if_false })

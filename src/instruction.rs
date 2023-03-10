@@ -1,7 +1,8 @@
-use crate::{program::Program, value::Value, variable, Error, Result};
 use serde::{Deserialize, Serialize};
-use std::{mem, sync::Arc, thread, time::Duration};
-use tap::Pipe;
+
+mod meta;
+mod mutating;
+mod pure;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub enum Instruction {
@@ -12,161 +13,51 @@ pub enum Instruction {
     Meta(Meta),
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum Pure {
-    Debug,
-    Sleep,
-    Program(Arc<Program>),
-    Clone(variable::Id),
-    Add(Value),
-    Sub(Value),
-    Mul(Value),
-    Div(Value),
-    Value(Value),
+pub trait IntoInstruction {
+    fn into_instruction(self) -> Instruction;
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum Mutating {
-    Take(variable::Id),
-    Assign(variable::Id),
-    Swap(variable::Id),
+pub use meta::Meta;
+pub use mutating::Mutating;
+pub use pure::Pure;
+
+impl IntoInstruction for Pure {
+    fn into_instruction(self) -> Instruction {
+        Instruction::Pure(self)
+    }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum Meta {
-    Return,
-    Perform(Value),
-    PerformClone(variable::Id),
-    PerformTake(variable::Id),
-    List(Vec<Instruction>),
+impl IntoInstruction for Meta {
+    fn into_instruction(self) -> Instruction {
+        Instruction::Meta(self)
+    }
 }
 
-impl Pure {
-    pub fn perform(self, return_value: Value, variables: &variable::Map) -> Result<Value> {
-        match self {
-            Pure::Program(mut program) => program
-                .pipe_ref_mut(Arc::make_mut)
-                .pipe(mem::take)
-                .run(return_value),
-            Pure::Clone(id) => variables.read(id).cloned(),
-            Pure::Add(value) => {
-                variables.maybe_read(return_value)? + variables.maybe_read(value)?
-            }
-            Pure::Sub(value) => {
-                variables.maybe_read(return_value)? - variables.maybe_read(value)?
-            }
-            Pure::Mul(value) => {
-                variables.maybe_read(return_value)? * variables.maybe_read(value)?
-            }
-            Pure::Div(value) => {
-                variables.maybe_read(return_value)? / variables.maybe_read(value)?
-            }
-            Pure::Debug => println!("{return_value:#?}").pipe(|_| Ok(return_value)),
-            Pure::Value(value) => Ok(value),
-            Pure::Sleep => {
-                if let Value::Float(duration) = return_value {
-                    thread::sleep(Duration::from_secs_f64(duration));
-                    Ok(Value::None)
-                } else {
-                    Err(Error::WrongInstructionInput(
-                        return_value,
-                        Instruction::Pure(Pure::Sleep),
-                    ))
-                }
-            }
+impl IntoInstruction for Mutating {
+    fn into_instruction(self) -> Instruction {
+        Instruction::Mutating(self)
+    }
+}
+
+impl<T> From<T> for Instruction
+where
+    T: IntoInstruction,
+{
+    fn from(value: T) -> Self {
+        value.into_instruction()
+    }
+}
+
+impl<T> From<Option<T>> for Instruction
+where
+    T: IntoInstruction,
+{
+    fn from(value: Option<T>) -> Self {
+        if let Some(value) = value {
+            value.into_instruction()
+        } else {
+            Instruction::Noop
         }
-    }
-
-    pub fn value(value: impl Into<Value>) -> Self {
-        Self::Value(value.into())
-    }
-}
-
-impl Mutating {
-    pub fn perform(
-        self,
-        return_value: Value,
-        mut variables: variable::Map,
-    ) -> Result<(Value, variable::Map)> {
-        match self {
-            Mutating::Take(id) => Ok((mem::take(variables.read_mut(id)?), variables)),
-            Mutating::Assign(id) => {
-                *variables.read_mut(id)? = return_value;
-                Ok((Value::None, variables))
-            }
-            Mutating::Swap(id) => Ok((
-                mem::replace(variables.read_mut(id)?, return_value),
-                variables,
-            )),
-        }
-    }
-}
-
-impl Meta {
-    pub fn perform(
-        self,
-        return_value: Value,
-        mut variables: variable::Map,
-        mut instruction_stack: Vec<Instruction>,
-    ) -> Result<(Value, variable::Map, Vec<Instruction>)> {
-        match self {
-            Meta::Return => {
-                instruction_stack.clear();
-                Ok((return_value, variables, instruction_stack))
-            }
-            Meta::Perform(value) => match return_value {
-                Value::Instruction(mut instruction) => {
-                    instruction_stack.push(Pure::Value(value).into());
-                    instruction_stack.push(instruction.pipe_ref_mut(Arc::make_mut).pipe(mem::take));
-                    Ok((Value::None, variables, instruction_stack))
-                }
-                value => Err(Error::PerformOnNonInstruction(value)),
-            },
-            Meta::PerformClone(value) => match return_value {
-                Value::Instruction(mut instruction) => {
-                    instruction_stack.push(variables.read(value)?.clone().pipe(Pure::Value).into());
-                    instruction_stack.push(instruction.pipe_ref_mut(Arc::make_mut).pipe(mem::take));
-                    Ok((Value::None, variables, instruction_stack))
-                }
-                value => Err(Error::PerformOnNonInstruction(value)),
-            },
-            Meta::PerformTake(value) => match return_value {
-                Value::Instruction(mut instruction) => {
-                    instruction_stack.push(
-                        variables
-                            .read_mut(value)?
-                            .pipe(mem::take)
-                            .pipe(Pure::Value)
-                            .into(),
-                    );
-                    instruction_stack.push(instruction.pipe_ref_mut(Arc::make_mut).pipe(mem::take));
-                    Ok((Value::None, variables, instruction_stack))
-                }
-                value => Err(Error::PerformOnNonInstruction(value)),
-            },
-            Meta::List(list) => {
-                instruction_stack.extend(list.into_iter().rev());
-                Ok((Value::None, variables, instruction_stack))
-            }
-        }
-    }
-}
-
-impl From<Pure> for Instruction {
-    fn from(value: Pure) -> Self {
-        Instruction::Pure(value)
-    }
-}
-
-impl From<Meta> for Instruction {
-    fn from(value: Meta) -> Self {
-        Instruction::Meta(value)
-    }
-}
-
-impl From<Mutating> for Instruction {
-    fn from(value: Mutating) -> Self {
-        Instruction::Mutating(value)
     }
 }
 

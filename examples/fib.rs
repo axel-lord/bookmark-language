@@ -10,7 +10,7 @@ fn main() -> Result<()> {
     let mut p_builder = ProgramBuilder::new();
     let mut v_builder = variable::MapBuilder::new();
 
-    let sleep_duration = Value::Float(0.1);
+    let sleep_duration = Value::Float(0.0);
 
     let a = v_builder.insert_rw(1.into());
     let b = v_builder.insert_rw(1.into());

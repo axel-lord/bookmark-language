@@ -21,6 +21,12 @@ pub enum Error {
     UnsuppurtedOperation(Operation, Value, Value),
     #[error("tried to divide {0:?} by {1:?} (Zero)")]
     ZeroDiv(Value, Value),
+    #[error("over/underflow occured on integer operation {op:?}, lhs = {lhs:?}, rhs = {rhs:?}")]
+    IntegerOverOrUnderFlow {
+        op: Operation,
+        lhs: Value,
+        rhs: Value,
+    },
     #[error("{0:?} cannot be used for {1:?}")]
     WrongInstructionInput(Value, Instruction),
 }

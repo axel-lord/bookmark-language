@@ -1,5 +1,5 @@
 use crate::{
-    instruction::{self, Instruction},
+    instruction::{self, Instruction, IntoInstruction},
     value::Value,
     variable, Result,
 };
@@ -17,7 +17,7 @@ impl Program {
     fn try_run(input: Value, variables: variable::Map, instruction: Instruction) -> Result<Value> {
         // Program state
         let mut return_value = input; // Input is stored as first return value
-        let mut instruction_stack = vec![instruction];
+        let mut instruction_stack = instruction::Stack::from(vec![instruction]);
         let mut variable_map = variables;
 
         // Pop and execute instructions
@@ -113,7 +113,7 @@ impl ProgramBuilder {
                 1 => instruction_vec
                     .pop()
                     .expect("since we now the length is 1 pop should always succeed"),
-                _ => Instruction::Meta(instruction::Meta::List(instruction_vec)),
+                _ => instruction::meta::List(instruction_vec).into_instruction(),
             },
         }
     }

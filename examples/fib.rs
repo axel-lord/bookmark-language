@@ -1,5 +1,5 @@
 use bookmark_language::{
-    instruction::{Meta, Mutating, Pure},
+    instruction::{meta, mutating, Pure},
     instruction_list,
     program::ProgramBuilder,
     value::Value,
@@ -29,19 +29,19 @@ fn main() -> Result<()> {
         sleep_print_1.clone(),
         sleep_print_1,
         Pure::Clone(l),
-        Meta::Perform(Value::None),
+        meta::Perform(Value::None),
     ]);
 
     let loop_body = instruction_list![
         Pure::Value(sleep_duration),
         Pure::Sleep,
-        Mutating::Take(a),
+        mutating::Take(a),
         Pure::Add(Value::Id(b)),
         Pure::Debug,
-        Mutating::Swap(b),
-        Mutating::Swap(a),
+        mutating::Swap(b),
+        mutating::Swap(a),
         Pure::Clone(l),
-        Meta::Perform(Value::None),
+        meta::Perform(Value::None),
     ];
 
     v_builder.set(l, loop_body.into())?;

@@ -186,8 +186,8 @@ impl Add<Value> for Value {
                 Value::String(lhs.to_string().add(&rhs).into_boxed_str().into())
             }
             [Value::Instruction(lhs), Value::Instruction(rhs)] => vec![*lhs, *rhs]
-                .pipe(instruction::Meta::List)
-                .pipe(Instruction::Meta)
+                .pipe(instruction::meta::List)
+                .pipe(Instruction::from)
                 .pipe(Box::new)
                 .pipe(Value::Instruction),
             [Value::List(lhs), Value::List(rhs)] => lhs

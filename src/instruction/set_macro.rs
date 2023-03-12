@@ -69,13 +69,12 @@ macro_rules! instr {
                 self,
                 return_value: Value,
             ) -> Result<Value> {
-                // use traits::Pure as _;
-                // match self {
-                //     $(
-                //     Self::$me_name(instr) => instr.perform(return_value),
-                //     )*
-                // }
-                todo!()
+                use traits::Pure as _;
+                match self {
+                    $(
+                    Self::$pu_name(instr) => instr.perform(return_value),
+                    )*
+                }
             }
         }
 
@@ -85,13 +84,12 @@ macro_rules! instr {
                 return_value: Value,
                 variables: &variable::Map,
             ) -> Result<Value> {
-                // use traits::Meta as _;
-                // match self {
-                //     $(
-                //     Self::$me_name(instr) => instr.perform(return_value, variables, instruction_stack),
-                //     )*
-                // }
-                todo!()
+                use traits::Reading as _;
+                match self {
+                    $(
+                    Self::$re_name(instr) => instr.perform(return_value, variables),
+                    )*
+                }
             }
         }
     };

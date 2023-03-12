@@ -1,5 +1,8 @@
-use super::traits::Mutating;
-use crate::{value::Value, variable, Result};
+use super::{pure::op_fn, traits::Mutating};
+use crate::{
+    value::{self, Operation, Value},
+    variable, Result,
+};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
@@ -74,3 +77,27 @@ impl Mutating for MapAssign {
         Ok((Value::None, variables))
     }
 }
+
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+pub struct OpTake(pub value::Operation, pub variable::Id);
+impl Mutating for OpTake {
+    fn perform(
+        self,
+        return_value: Value,
+        mut variables: variable::Map,
+    ) -> Result<(Value, variable::Map)> {
+        let Self(operation, id) = self;
+
+        operation
+            .apply(return_value, mem::take(variables.read_mut(id)?))
+            .map(|value| (value, variables))
+    }
+}
+
+op_fn![
+    (OpTake, id, variable::Id, take),
+    (add, Operation::Add),
+    (sub, Operation::Sub),
+    (mul, Operation::Mul),
+    (div, Operation::Div),
+];

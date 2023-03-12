@@ -1,4 +1,4 @@
-use super::{traits::Meta, Instruction, Pure};
+use super::{pure, traits::Meta, Instruction};
 use crate::{value::Value, variable, Error, Result};
 use serde::{Deserialize, Serialize};
 use std::mem;
@@ -47,7 +47,7 @@ impl Meta for Perform {
 
         match return_value {
             Value::Instruction(instruction) => {
-                instruction_stack.push(Pure::Value(value));
+                instruction_stack.push(pure::Put(value));
                 instruction_stack.push(*instruction);
                 Ok((Value::None, variables, instruction_stack))
             }
@@ -69,7 +69,7 @@ impl Meta for PerformClone {
 
         match return_value {
             Value::Instruction(instruction) => {
-                instruction_stack.push(variables.read(value)?.clone().pipe(Pure::Value));
+                instruction_stack.push(variables.read(value)?.clone().pipe(pure::Put));
                 instruction_stack.push(*instruction);
                 Ok((Value::None, variables, instruction_stack))
             }
@@ -91,8 +91,7 @@ impl Meta for PerformTake {
 
         match return_value {
             Value::Instruction(instruction) => {
-                instruction_stack
-                    .push(variables.read_mut(value)?.pipe(mem::take).pipe(Pure::Value));
+                instruction_stack.push(variables.read_mut(value)?.pipe(mem::take).pipe(pure::Put));
                 instruction_stack.push(*instruction);
                 Ok((Value::None, variables, instruction_stack))
             }

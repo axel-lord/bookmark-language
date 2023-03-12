@@ -23,9 +23,12 @@ impl Program {
         // Pop and execute instructions
         while let Some(instruction) = instruction_stack.pop() {
             match instruction {
-                Instruction::Pure(instruction) => {
+                Instruction::Reading(instruction) => {
                     return_value =
                         instruction.perform(mem::take(&mut return_value), &variable_map)?
+                }
+                Instruction::Pure(instruction) => {
+                    return_value = instruction.perform(mem::take(&mut return_value))?
                 }
                 Instruction::Mutating(instruction) => {
                     (return_value, variable_map) = instruction

@@ -32,14 +32,21 @@ Pure: [
     Coerce(pure::Coerce),
     Parse(pure::Parse),
     Op(pure::Op),
+    ToFallible(pure::ToFallible),
+    ToInfallible(pure::ToInfallible),
 ],
-Reading: [],
+Reading: [
+    Clone(reading::Clone),
+    GetClone(reading::GetClone),
+    OpClone(reading::OpClone),
+],
 Mutating: [
     Take(mutating::Take),
     Assign(mutating::Assign),
     Swap(mutating::Swap),
     GetTake(mutating::GetTake),
     MapAssign(mutating::MapAssign),
+    OpTake(mutating::OpTake),
 ],
 Meta: [
     List(meta::List),

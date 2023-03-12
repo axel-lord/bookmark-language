@@ -30,12 +30,23 @@ pub enum Value {
     None,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, IsVariant)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, IsVariant)]
 pub enum Operation {
     Add,
     Sub,
     Mul,
     Div,
+}
+
+impl Operation {
+    pub fn apply(self, lhs: Value, rhs: Value) -> Result<Value> {
+        match self {
+            Operation::Add => lhs.add(rhs),
+            Operation::Sub => lhs.sub(rhs),
+            Operation::Mul => lhs.mul(rhs),
+            Operation::Div => lhs.div(rhs),
+        }
+    }
 }
 
 impl Value {

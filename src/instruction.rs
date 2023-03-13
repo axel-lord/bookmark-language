@@ -12,7 +12,7 @@ mod stack;
 
 pub use stack::Stack;
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default, IsVariant)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default, IsVariant, PartialEq)]
 pub enum Instruction {
     #[default]
     Noop,
@@ -34,6 +34,7 @@ Pure: [
     Op(pure::Op),
     ToFallible(pure::ToFallible),
     ToInfallible(pure::ToInfallible),
+    Not(pure::Not),
 ],
 Reading: [
     Clone(reading::Clone),
@@ -62,15 +63,15 @@ pub mod traits {
     use serde::{Deserialize, Serialize};
     use std::fmt::Debug;
 
-    pub trait Pure: Debug + Serialize + Deserialize<'static> + Clone {
+    pub trait Pure: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
         fn perform(self, return_value: Value) -> Result<Value>;
     }
 
-    pub trait Reading: Debug + Serialize + Deserialize<'static> + Clone {
+    pub trait Reading: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
         fn perform(self, return_value: Value, variables: &variable::Map) -> Result<Value>;
     }
 
-    pub trait Mutating: Debug + Serialize + Deserialize<'static> + Clone {
+    pub trait Mutating: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
         fn perform(
             self,
             return_value: Value,
@@ -78,7 +79,7 @@ pub mod traits {
         ) -> Result<(Value, variable::Map)>;
     }
 
-    pub trait Meta: Debug + Serialize + Deserialize<'static> + Clone {
+    pub trait Meta: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
         fn perform(
             self,
             return_value: Value,

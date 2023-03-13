@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::mem;
 use tap::Pipe;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct List(pub Vec<Instruction>);
 impl Meta for List {
     fn perform(
@@ -20,7 +20,7 @@ impl Meta for List {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Return;
 impl Meta for Return {
     fn perform(
@@ -34,7 +34,7 @@ impl Meta for Return {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Perform(pub Value);
 impl Meta for Perform {
     fn perform(
@@ -56,7 +56,7 @@ impl Meta for Perform {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct PerformClone(pub variable::Id);
 impl Meta for PerformClone {
     fn perform(
@@ -78,7 +78,7 @@ impl Meta for PerformClone {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct PerformTake(pub variable::Id);
 impl Meta for PerformTake {
     fn perform(

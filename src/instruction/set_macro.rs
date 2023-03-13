@@ -1,7 +1,7 @@
 macro_rules! subenum {
     ($([$ename:ident, $([$sname:ident, $ty:ty],)*],)* ) => {
         $(
-        #[derive(Debug, Deserialize, Serialize, Clone)]
+        #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
         pub enum $ename {
             $(
             $sname($ty),

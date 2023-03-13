@@ -50,20 +50,13 @@ pub enum Operation {
 
 impl Operation {
     pub fn apply(self, lhs: Value, rhs: Value) -> Result<Value> {
-        use Operation::*;
-        match self {
-            Add => lhs.add(rhs),
-            Sub => lhs.sub(rhs),
-            Mul => lhs.mul(rhs),
-            Div => lhs.div(rhs),
-            Eq => lhs.eq(&rhs).pipe(Value::Bool).pipe(Ok),
-            Lt => lhs.lt(&rhs).pipe(Value::Bool).pipe(Ok),
-            Le => lhs.le(&rhs).pipe(Value::Bool).pipe(Ok),
-            Gt => lhs.gt(&rhs).pipe(Value::Bool).pipe(Ok),
-            Ge => lhs.ge(&rhs).pipe(Value::Bool).pipe(Ok),
-            And => lhs.and(rhs),
-            Or => lhs.or(rhs),
-        }
+        operation_match![
+            self,
+            lhs,
+            rhs,
+            Transf: [Add, Sub, Mul, Div, And, Or],
+            Comp: [Eq, Lt, Le, Gt, Ge],
+        ]
     }
 }
 
@@ -77,26 +70,25 @@ impl Value {
             return Ok(self);
         }
 
+        use Value::{Bool, Float, Instruction, Int, List, Map, String};
         match (self, to) {
             (_, Type::None) => Ok(Value::None),
             (value, Type::Type) => Ok(Value::Type(Type::from(value))),
 
-            (Value::Int(value), Type::Float) => Ok(Value::Float(value as f64)),
-            (Value::Float(value), Type::Int) => Ok(Value::Int(value.round() as i64)),
+            (Int(value), Type::Float) => Ok(Float(value as f64)),
+            (Float(value), Type::Int) => Ok(Int(value.round() as i64)),
 
-            (Value::Int(value), Type::Bool) => Ok(Value::Bool(value != 0)),
-            (Value::Float(value), Type::Bool) => {
-                Ok(Value::Bool((value.abs() == 0.0) || value.is_nan()))
-            }
-            (Value::String(value), Type::Bool) => Ok(Value::Bool(!value.is_empty())),
-            (Value::Instruction(value), Type::Bool) => Ok(Value::Bool(!value.is_noop())),
-            (Value::List(value), Type::Bool) => Ok(Value::Bool(!value.is_empty())),
-            (Value::Map(value), Type::Bool) => Ok(Value::Bool(!value.is_empty())),
-            (Value::None, Type::Bool) => Ok(Value::Bool(false)),
+            (Int(value), Type::Bool) => Ok(Bool(value != 0)),
+            (Float(value), Type::Bool) => Ok(Bool((value.abs() == 0.0) || value.is_nan())),
+            (String(value), Type::Bool) => Ok(Bool(!value.is_empty())),
+            (Instruction(value), Type::Bool) => Ok(Bool(!value.is_noop())),
+            (List(value), Type::Bool) => Ok(Bool(!value.is_empty())),
+            (Map(value), Type::Bool) => Ok(Bool(!value.is_empty())),
+            (Value::None, Type::Bool) => Ok(Bool(false)),
 
-            (Value::Bool(value), Type::String) => Ok(Value::String(value.to_string().into())),
-            (Value::Int(value), Type::String) => Ok(Value::String(value.to_string().into())),
-            (Value::Float(value), Type::String) => Ok(Value::String(value.to_string().into())),
+            (Bool(value), Type::String) => Ok(value.to_string().into()),
+            (Int(value), Type::String) => Ok(value.to_string().into()),
+            (Float(value), Type::String) => Ok(value.to_string().into()),
 
             (value, to) => Err(Error::InvalidCast(Type::from(&value), to, value)),
         }
@@ -210,6 +202,8 @@ impl Value {
         }
     }
 }
+
+// operator impls
 
 impl Add for Value {
     type Output = Result<Value>;
@@ -441,5 +435,32 @@ macro_rules! def_op_fn {
     };
 }
 
+macro_rules! operation_match_pattern {
+    (Comp, $var:ident, $lhs:expr, $rhs:expr) => {
+        paste::paste! {
+            $lhs. [< $var:lower >] (& $rhs).pipe(Value::Bool).pipe(Ok)
+        }
+    };
+    (Transf, $var:ident, $lhs:expr, $rhs:expr) => {
+        paste::paste! {
+            $lhs. [< $var:lower >] ($rhs)
+        }
+    };
+}
+
+macro_rules! operation_match {
+    ($sel:expr, $lhs:expr, $rhs:expr, $($pat_type:ident: [$($var:ident),+]),+ $(,)?) => {
+        {
+            match $sel {
+                $($(
+                Operation::$var => operation_match_pattern!($pat_type, $var, $lhs, $rhs),
+                )*)*
+            }
+        }
+    };
+}
+
 pub(crate) use def_op_fn;
 pub(crate) use op_fn;
+use operation_match;
+use operation_match_pattern;

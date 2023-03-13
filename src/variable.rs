@@ -4,16 +4,16 @@ use crate::{value::Value, Error, Result};
 use serde::{Deserialize, Serialize};
 use tap::Pipe;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct Id(IdInternal);
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 enum IdInternal {
     Rw(usize),
     Ro(usize),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Map(Box<[Value]>, Arc<[Value]>);
 
 impl Default for Map {

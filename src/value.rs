@@ -6,6 +6,7 @@ use derive_more::IsVariant;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
+    cmp,
     collections::BTreeMap,
     ops::{Add, Div, Mul, Sub},
     sync::Arc,
@@ -13,7 +14,9 @@ use std::{
 use strum::EnumDiscriminants;
 use tap::{Pipe, Tap};
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone, EnumDiscriminants, IsVariant)]
+#[derive(
+    Debug, Default, Deserialize, Serialize, Clone, EnumDiscriminants, IsVariant, PartialEq,
+)]
 #[strum_discriminants(name(Type), derive(Serialize, Deserialize, Default, IsVariant))]
 pub enum Value {
     Bool(bool),
@@ -36,6 +39,7 @@ pub enum Operation {
     Sub,
     Mul,
     Div,
+    Eq,
 }
 
 impl Operation {
@@ -45,6 +49,7 @@ impl Operation {
             Operation::Sub => lhs.sub(rhs),
             Operation::Mul => lhs.mul(rhs),
             Operation::Div => lhs.div(rhs),
+            Operation::Eq => lhs.eq(&rhs).pipe(Value::Bool).pipe(Ok),
         }
     }
 }
@@ -179,7 +184,7 @@ impl Value {
     }
 }
 
-impl Add<Value> for Value {
+impl Add for Value {
     type Output = Result<Value>;
 
     fn add(self, rhs: Value) -> Self::Output {
@@ -213,7 +218,7 @@ impl Add<Value> for Value {
     }
 }
 
-impl Sub<Value> for Value {
+impl Sub for Value {
     type Output = Result<Value>;
 
     fn sub(self, rhs: Value) -> Self::Output {
@@ -233,7 +238,7 @@ impl Sub<Value> for Value {
     }
 }
 
-impl Mul<Value> for Value {
+impl Mul for Value {
     type Output = Result<Value>;
 
     fn mul(self, rhs: Value) -> Self::Output {
@@ -253,7 +258,7 @@ impl Mul<Value> for Value {
     }
 }
 
-impl Div<Value> for Value {
+impl Div for Value {
     type Output = Result<Value>;
 
     fn div(self, rhs: Value) -> Self::Output {
@@ -273,6 +278,22 @@ impl Div<Value> for Value {
             [lhs, rhs] => return Error::UnsuppurtedOperation(Operation::Div, lhs, rhs).pipe(Err),
         }
         .pipe(Ok)
+    }
+}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        // I think this ensures the requirements of the trait
+        if self.eq(other) {
+            Some(cmp::Ordering::Equal)
+        } else {
+            match (self, other) {
+                (Self::Int(lhs), Self::Int(rhs)) => lhs.partial_cmp(rhs),
+                (Self::Float(lhs), Self::Float(rhs)) => lhs.partial_cmp(rhs),
+                // All other variants than ints and floats can only be either equal or not
+                _ => None,
+            }
+        }
     }
 }
 
@@ -348,3 +369,46 @@ impl From<BTreeMap<Arc<str>, Value>> for Value {
         Self::Map(value)
     }
 }
+
+macro_rules! op_fn {
+    (($op_ty:path, $value_n:ident, $value_ty:ty), $(($n:ident, $op:path)),+ $(,)?) => {
+        $(
+        pub fn $n($value_n: $value_ty) -> $op_ty {
+            $op_ty($op, $value_n)
+        }
+        )*
+    };
+    (($op_ty:path, $value_n:ident, $value_ty:ty, $suf:ident), $(($n:ident, $op:path)),+ $(,)?) => {
+        paste::paste!{$(
+        pub fn  [<$n _ $suf>] ($value_n: $value_ty) -> $op_ty {
+            $op_ty($op, $value_n)
+        }
+        )*}
+    };
+}
+
+macro_rules! def_op_fn {
+    ($op_ty:path, $value_n:ident, $value_ty:ty) => {
+        $crate::value::op_fn![
+            ($op_ty, $value_n, $value_ty),
+            (add, $crate::value::Operation::Add),
+            (sub, $crate::value::Operation::Sub),
+            (mul, $crate::value::Operation::Mul),
+            (div, $crate::value::Operation::Div),
+            (eq, $crate::value::Operation::Eq),
+        ];
+    };
+    ($op_ty:path, $value_n:ident, $value_ty:ty, $suf:ident) => {
+        $crate::value::op_fn![
+            ($op_ty, $value_n, $value_ty, $suf),
+            (add, $crate::value::Operation::Add),
+            (sub, $crate::value::Operation::Sub),
+            (mul, $crate::value::Operation::Mul),
+            (div, $crate::value::Operation::Div),
+            (eq, $crate::value::Operation::Eq),
+        ];
+    };
+}
+
+pub(crate) use def_op_fn;
+pub(crate) use op_fn;

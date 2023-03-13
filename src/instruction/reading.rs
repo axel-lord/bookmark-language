@@ -1,11 +1,11 @@
-use super::{pure::op_fn, traits::Reading};
+use super::traits::Reading;
 use crate::{
-    value::{self, Operation, Value},
+    value::{self, def_op_fn, Value},
     variable, Result,
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Clone(pub variable::Id);
 impl Reading for Clone {
     fn perform(self, _return_value: Value, variables: &variable::Map) -> Result<Value> {
@@ -15,7 +15,7 @@ impl Reading for Clone {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct GetClone(pub variable::Id);
 impl Reading for GetClone {
     fn perform(self, return_value: Value, variables: &variable::Map) -> Result<Value> {
@@ -25,7 +25,7 @@ impl Reading for GetClone {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct OpClone(pub value::Operation, pub variable::Id);
 impl Reading for OpClone {
     fn perform(self, return_value: Value, variables: &variable::Map) -> Result<Value> {
@@ -35,10 +35,4 @@ impl Reading for OpClone {
     }
 }
 
-op_fn![
-    (OpClone, id, variable::Id, clone),
-    (add, Operation::Add),
-    (sub, Operation::Sub),
-    (mul, Operation::Mul),
-    (div, Operation::Div),
-];
+def_op_fn!(OpClone, id, variable::Id, clone);

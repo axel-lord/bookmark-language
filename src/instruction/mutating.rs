@@ -1,12 +1,12 @@
-use super::{pure::op_fn, traits::Mutating};
+use super::traits::Mutating;
 use crate::{
-    value::{self, Operation, Value},
+    value::{self, def_op_fn, Value},
     variable, Result,
 };
 use serde::{Deserialize, Serialize};
 use std::mem;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Take(pub variable::Id);
 impl Mutating for Take {
     fn perform(
@@ -18,7 +18,7 @@ impl Mutating for Take {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Assign(pub variable::Id);
 impl Mutating for Assign {
     fn perform(
@@ -31,7 +31,7 @@ impl Mutating for Assign {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Swap(pub variable::Id);
 impl Mutating for Swap {
     fn perform(
@@ -46,7 +46,7 @@ impl Mutating for Swap {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct GetTake(pub variable::Id);
 impl Mutating for GetTake {
     fn perform(
@@ -60,7 +60,7 @@ impl Mutating for GetTake {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct MapAssign {
     map: variable::Id,
     key: Value,
@@ -78,7 +78,7 @@ impl Mutating for MapAssign {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct OpTake(pub value::Operation, pub variable::Id);
 impl Mutating for OpTake {
     fn perform(
@@ -94,10 +94,4 @@ impl Mutating for OpTake {
     }
 }
 
-op_fn![
-    (OpTake, id, variable::Id, take),
-    (add, Operation::Add),
-    (sub, Operation::Sub),
-    (mul, Operation::Mul),
-    (div, Operation::Div),
-];
+def_op_fn!(OpTake, id, variable::Id, take);

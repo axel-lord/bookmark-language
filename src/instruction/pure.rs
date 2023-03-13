@@ -1,14 +1,14 @@
 use super::{traits::Pure, IntoInstruction};
 use crate::{
     program,
-    value::{self, Operation, Value},
+    value::{self, def_op_fn, Value},
     Error, Result,
 };
 use serde::{Deserialize, Serialize};
 use std::{mem, sync::Arc, thread, time::Duration};
 use tap::Pipe;
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Debug;
 impl Pure for Debug {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -17,7 +17,7 @@ impl Pure for Debug {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Sleep;
 impl Pure for Sleep {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -33,7 +33,7 @@ impl Pure for Sleep {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Program(pub Arc<program::Program>);
 impl Pure for Program {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -46,7 +46,7 @@ impl Pure for Program {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Cond {
     if_true: Value,
     if_false: Value,
@@ -66,7 +66,7 @@ impl Pure for Cond {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Put(pub value::Value);
 impl Pure for Put {
     fn perform(self, _: Value) -> Result<Value> {
@@ -78,7 +78,7 @@ pub fn put(value: impl Into<Value>) -> Put {
     Put(value.into())
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Coerce(pub value::Type);
 impl Pure for Coerce {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -86,7 +86,7 @@ impl Pure for Coerce {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Parse(pub value::Type);
 impl Pure for Parse {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -94,7 +94,7 @@ impl Pure for Parse {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Op(value::Operation, Value);
 impl Pure for Op {
     fn perform(self, lhs: Value) -> Result<Value> {
@@ -103,15 +103,9 @@ impl Pure for Op {
     }
 }
 
-op_fn![
-    (Op, value, Value),
-    (add, Operation::Add),
-    (sub, Operation::Sub),
-    (mul, Operation::Mul),
-    (div, Operation::Div),
-];
+def_op_fn!(Op, value, Value);
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct ToFallible;
 impl Pure for ToFallible {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -132,7 +126,7 @@ impl Pure for ToFallible {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct ToInfallible;
 impl Pure for ToInfallible {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -153,21 +147,14 @@ impl Pure for ToInfallible {
     }
 }
 
-macro_rules! op_fn {
-    (($op_ty:path, $value_n:ident, $value_ty:ty), $(($n:ident, $op:path)),+ $(,)?) => {
-        $(
-        pub fn $n($value_n: $value_ty) -> $op_ty {
-            $op_ty($op, $value_n)
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
+pub struct Not;
+impl Pure for Not {
+    fn perform(self, return_value: Value) -> Result<Value> {
+        if let Value::Bool(value) = return_value {
+            Ok(Value::Bool(!value))
+        } else {
+            Err(Error::WrongInstructionInput(return_value, self.into()))
         }
-        )*
-    };
-    (($op_ty:path, $value_n:ident, $value_ty:ty, $suf:ident), $(($n:ident, $op:path)),+ $(,)?) => {
-        paste::paste!{$(
-        pub fn  [<$n _ $suf>] ($value_n: $value_ty) -> $op_ty {
-            $op_ty($op, $value_n)
-        }
-        )*}
-    };
+    }
 }
-
-pub(crate) use op_fn;

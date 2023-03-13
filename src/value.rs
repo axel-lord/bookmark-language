@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     ops::{Add, Div, Mul, Sub},
     sync::Arc,
 };
@@ -40,16 +40,29 @@ pub enum Operation {
     Mul,
     Div,
     Eq,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    And,
+    Or,
 }
 
 impl Operation {
     pub fn apply(self, lhs: Value, rhs: Value) -> Result<Value> {
+        use Operation::*;
         match self {
-            Operation::Add => lhs.add(rhs),
-            Operation::Sub => lhs.sub(rhs),
-            Operation::Mul => lhs.mul(rhs),
-            Operation::Div => lhs.div(rhs),
-            Operation::Eq => lhs.eq(&rhs).pipe(Value::Bool).pipe(Ok),
+            Add => lhs.add(rhs),
+            Sub => lhs.sub(rhs),
+            Mul => lhs.mul(rhs),
+            Div => lhs.div(rhs),
+            Eq => lhs.eq(&rhs).pipe(Value::Bool).pipe(Ok),
+            Lt => lhs.lt(&rhs).pipe(Value::Bool).pipe(Ok),
+            Le => lhs.le(&rhs).pipe(Value::Bool).pipe(Ok),
+            Gt => lhs.gt(&rhs).pipe(Value::Bool).pipe(Ok),
+            Ge => lhs.ge(&rhs).pipe(Value::Bool).pipe(Ok),
+            And => lhs.and(rhs),
+            Or => lhs.or(rhs),
         }
     }
 }
@@ -182,6 +195,20 @@ impl Value {
             (map, key) => Err(Error::WrongKeyType(key, <Type as From<&Value>>::from(map))),
         }
     }
+
+    pub fn and(self, other: Value) -> Result<Value> {
+        match [self, other] {
+            [Value::Bool(lhs), Value::Bool(rhs)] => Ok(Value::Bool(lhs && rhs)),
+            [lhs, rhs] => Err(Error::UnsuppurtedOperation(Operation::And, lhs, rhs)),
+        }
+    }
+
+    pub fn or(self, other: Value) -> Result<Value> {
+        match [self, other] {
+            [Value::Bool(lhs), Value::Bool(rhs)] => Ok(Value::Bool(lhs || rhs)),
+            [lhs, rhs] => Err(Error::UnsuppurtedOperation(Operation::Or, lhs, rhs)),
+        }
+    }
 }
 
 impl Add for Value {
@@ -199,7 +226,7 @@ impl Add for Value {
                 .pipe(Value::Int),
             [Value::Float(lhs), Value::Float(rhs)] => Value::Float(lhs + rhs),
             [Value::String(lhs), Value::String(rhs)] => {
-                Value::String(lhs.to_string().add(&rhs).into_boxed_str().into())
+                Value::String(lhs.to_string().add(&rhs).into())
             }
             [Value::Instruction(lhs), Value::Instruction(rhs)] => vec![*lhs, *rhs]
                 .pipe(instruction::meta::List)
@@ -370,6 +397,14 @@ impl From<BTreeMap<Arc<str>, Value>> for Value {
     }
 }
 
+impl From<HashMap<Arc<str>, Value>> for Value {
+    fn from(value: HashMap<Arc<str>, Value>) -> Self {
+        Self::Map(BTreeMap::from_iter(value.into_iter()))
+    }
+}
+
+// Macros
+
 macro_rules! op_fn {
     (($op_ty:path, $value_n:ident, $value_ty:ty), $(($n:ident, $op:path)),+ $(,)?) => {
         $(
@@ -388,24 +423,20 @@ macro_rules! op_fn {
 }
 
 macro_rules! def_op_fn {
-    ($op_ty:path, $value_n:ident, $value_ty:ty) => {
+    ($op_ty:path, $value_n:ident, $value_ty:ty $(, $suf:ident)?) => {
         $crate::value::op_fn![
-            ($op_ty, $value_n, $value_ty),
+            ($op_ty, $value_n, $value_ty $(, $suf)?),
             (add, $crate::value::Operation::Add),
             (sub, $crate::value::Operation::Sub),
             (mul, $crate::value::Operation::Mul),
             (div, $crate::value::Operation::Div),
             (eq, $crate::value::Operation::Eq),
-        ];
-    };
-    ($op_ty:path, $value_n:ident, $value_ty:ty, $suf:ident) => {
-        $crate::value::op_fn![
-            ($op_ty, $value_n, $value_ty, $suf),
-            (add, $crate::value::Operation::Add),
-            (sub, $crate::value::Operation::Sub),
-            (mul, $crate::value::Operation::Mul),
-            (div, $crate::value::Operation::Div),
-            (eq, $crate::value::Operation::Eq),
+            (lt, $crate::value::Operation::Lt),
+            (le, $crate::value::Operation::Le),
+            (gt, $crate::value::Operation::Gt),
+            (ge, $crate::value::Operation::Ge),
+            (and, $crate::value::Operation::And),
+            (or, $crate::value::Operation::Or),
         ];
     };
 }

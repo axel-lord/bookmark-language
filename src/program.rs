@@ -1,5 +1,5 @@
 use crate::{
-    instruction::{self, Instruction, IntoInstruction},
+    instruction::{self, External, Instruction, IntoInstruction},
     value::Value,
     variable, Result,
 };
@@ -36,6 +36,13 @@ impl Program {
                 }
                 Instruction::Meta(instruction) => {
                     (return_value, variable_map, instruction_stack) = instruction.perform(
+                        mem::take(&mut return_value),
+                        mem::take(&mut variable_map),
+                        mem::take(&mut instruction_stack),
+                    )?;
+                }
+                Instruction::External(External(instr)) => {
+                    (return_value, variable_map, instruction_stack) = instr(
                         mem::take(&mut return_value),
                         mem::take(&mut variable_map),
                         mem::take(&mut instruction_stack),

@@ -1,3 +1,5 @@
+use std::{borrow::Cow, fmt::Debug, sync::Arc};
+
 use crate::{value::Value, variable, Result};
 use derive_more::IsVariant;
 use serde::{Deserialize, Serialize};
@@ -20,6 +22,26 @@ pub enum Instruction {
     Reading(Reading),
     Mutating(Mutating),
     Meta(Meta),
+    #[serde(skip)]
+    External(External),
+}
+
+type ExternalReturn = Result<(Value, variable::Map, Stack)>;
+type ExternalInner = Arc<dyn Fn(Value, variable::Map, Stack) -> ExternalReturn>;
+
+#[derive(Clone)]
+pub struct External(pub ExternalInner);
+
+impl Debug for External {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "External")
+    }
+}
+
+impl PartialEq for External {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
 }
 
 set_macro::instr! {

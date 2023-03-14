@@ -58,6 +58,34 @@ Meta: [
 ]
 }
 
+impl Instruction {
+    pub fn flatten(self) -> Self {
+        let Instruction::Meta(Meta::List(meta::List(instr_vec))) = self else {
+            return self;
+        };
+
+        let mut out_instrs = Vec::new();
+        let mut instr_stack = Vec::from_iter(instr_vec.into_iter().rev());
+
+        while let Some(instr) = instr_stack.pop() {
+            if let Instruction::Meta(Meta::List(meta::List(instr_vec))) = instr {
+                instr_stack.extend(instr_vec.into_iter().rev());
+            } else {
+                out_instrs.push(instr);
+            }
+        }
+
+        match out_instrs.len() {
+            0 => Instruction::Noop,
+            1 => out_instrs
+                .into_iter()
+                .next()
+                .expect("should never fail since we know the size is 1"),
+            _ => meta::List(out_instrs).into(),
+        }
+    }
+}
+
 pub mod traits {
     use crate::{value::Value, variable, Result};
     use serde::{Deserialize, Serialize};
@@ -123,4 +151,27 @@ macro_rules! instruction_list {
             $crate::instruction::meta::List(vec![$($inst.into()),*]).into_instruction()
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pure::put;
+
+    #[test]
+    pub fn instruction_flatten() {
+        let instruction_expect = (1..=10)
+            .map(|num| put(num).into_instruction())
+            .collect::<meta::List>()
+            .into_instruction();
+
+        let instruction_input = instruction_list![
+            put(1),
+            put(2),
+            instruction_list![put(3), put(4), instruction_list![put(5), put(6),], put(7),],
+            instruction_list![put(8), put(9), put(10),],
+        ];
+
+        assert_eq!(instruction_expect, instruction_input.flatten());
+    }
 }

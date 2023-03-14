@@ -20,6 +20,12 @@ impl Meta for List {
     }
 }
 
+impl FromIterator<Instruction> for List {
+    fn from_iter<T: IntoIterator<Item = Instruction>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Return;
 impl Meta for Return {

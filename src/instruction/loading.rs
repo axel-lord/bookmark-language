@@ -1,4 +1,5 @@
-use super::traits::{Loader, Loading};
+use super::instr_traits::Loading;
+use super::traits::Loader;
 use crate::{program, value::Value, Result};
 use serde::{Deserialize, Serialize};
 use std::{mem, sync::Arc};

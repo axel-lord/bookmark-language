@@ -1,4 +1,4 @@
-use super::{pure, traits::Meta, Instruction};
+use super::{instr_traits::Meta, pure, Instruction};
 use crate::{value::Value, variable, Error, Result};
 use serde::{Deserialize, Serialize};
 use std::mem;

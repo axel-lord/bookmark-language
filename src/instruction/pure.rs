@@ -1,12 +1,10 @@
-use super::{traits::Pure, IntoInstruction};
+use super::{loading::Program, traits::Pure, IntoInstruction};
 use crate::{
-    program,
     value::{self, def_op_fn, Value},
     Error, Result,
 };
 use serde::{Deserialize, Serialize};
 use std::{mem, sync::Arc, thread, time::Duration};
-use tap::Pipe;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Debug;
@@ -30,19 +28,6 @@ impl Pure for Sleep {
 
         thread::sleep(Duration::from_secs_f64(duration));
         Ok(Value::None)
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-pub struct Program(pub Arc<program::Program>);
-impl Pure for Program {
-    fn perform(self, return_value: Value) -> Result<Value> {
-        let Self(mut arc_prgr) = self;
-
-        arc_prgr
-            .pipe_ref_mut(Arc::make_mut)
-            .pipe(mem::take)
-            .run(return_value)
     }
 }
 
@@ -113,7 +98,7 @@ impl Pure for ToFallible {
              return Err(Error::WrongInstructionInput(return_value, self.into()))
         };
 
-        let super::Instruction::Pure(super::Pure::Program(Program(mut arc_prgr))) = *boxed_instr else {
+        let super::Instruction::Loading(super::Loading::Program(Program(mut arc_prgr))) = *boxed_instr else {
              return Err(Error::WrongInstructionInput(boxed_instr.into(), self.into()))
         };
 
@@ -134,7 +119,7 @@ impl Pure for ToInfallible {
              return Err(Error::WrongInstructionInput(return_value, self.into()))
         };
 
-        let super::Instruction::Pure(super::Pure::Program(Program(mut arc_prgr))) = *boxed_instr else {
+        let super::Instruction::Loading(super::Loading::Program(Program(mut arc_prgr))) = *boxed_instr else {
              return Err(Error::WrongInstructionInput(boxed_instr.into(), self.into()))
         };
 

@@ -57,6 +57,9 @@ pub enum Error {
 
     #[error("{0:?} cannot be used for {1:?}")]
     WrongInstructionInput(Value, Instruction),
+
+    #[error("{0:?} cannot be loaded using current loader")]
+    UnloadableValue(Value),
 }
 
 pub mod value;

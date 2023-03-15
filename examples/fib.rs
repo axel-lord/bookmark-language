@@ -1,5 +1,5 @@
 use bookmark_language::{
-    instruction::{meta, mutating, pure, reading},
+    instruction::{meta, mutating, pure, reading, DefaultLoader},
     instruction_list,
     program::ProgramBuilder,
     value::Value,
@@ -76,7 +76,7 @@ fn main() -> Result<(), Error> {
     if let Some(file_path) = file_path {
         serde_json::to_writer_pretty(BufWriter::new(File::create(file_path)?), &program)?;
     } else {
-        program.run(Value::None).map(|_| ())?;
+        program.run(Value::None, &DefaultLoader).map(|_| ())?;
     }
     Ok(())
 }

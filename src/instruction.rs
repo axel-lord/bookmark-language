@@ -1,13 +1,18 @@
-use std::{borrow::Cow, fmt::Debug, sync::Arc};
+use std::{
+    fmt::{self, Debug},
+    sync::Arc,
+};
 
-use crate::{value::Value, variable, Result};
+use crate::{value::Value, variable, Error, Result};
 use derive_more::IsVariant;
 use serde::{Deserialize, Serialize};
 
+pub mod loading;
 pub mod meta;
 pub mod mutating;
 pub mod pure;
 pub mod reading;
+pub mod traits;
 
 mod set_macro;
 mod stack;
@@ -22,19 +27,25 @@ pub enum Instruction {
     Reading(Reading),
     Mutating(Mutating),
     Meta(Meta),
+    Loading(Loading),
     #[serde(skip)]
     External(External),
 }
 
-type ExternalReturn = Result<(Value, variable::Map, Stack)>;
-type ExternalInner = Arc<dyn Fn(Value, variable::Map, Stack) -> ExternalReturn>;
-
 #[derive(Clone)]
-pub struct External(pub ExternalInner);
+pub struct External(pub Arc<dyn traits::External>);
 
 impl Debug for External {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "External")
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "External")?;
+
+        if let Some(extra_debug) = self.0.extra_debug() {
+            write!(f, "(")?;
+            extra_debug(f)?;
+            write!(f, ")")?;
+        }
+
+        Ok(())
     }
 }
 
@@ -48,7 +59,6 @@ set_macro::instr! {
 Pure: [
     Sleep(pure::Sleep),
     Debug(pure::Debug),
-    Program(pure::Program),
     Cond(pure::Cond),
     Put(pure::Put),
     Coerce(pure::Coerce),
@@ -77,6 +87,10 @@ Meta: [
     Perform(meta::Perform),
     PerformClone(meta::PerformClone),
     PerformTake(meta::PerformTake),
+],
+Loading: [
+    Program(loading::Program),
+    Load(loading::Load),
 ]
 }
 
@@ -108,34 +122,11 @@ impl Instruction {
     }
 }
 
-pub mod traits {
-    use crate::{value::Value, variable, Result};
-    use serde::{Deserialize, Serialize};
-    use std::fmt::Debug;
-
-    pub trait Pure: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
-        fn perform(self, return_value: Value) -> Result<Value>;
-    }
-
-    pub trait Reading: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
-        fn perform(self, return_value: Value, variables: &variable::Map) -> Result<Value>;
-    }
-
-    pub trait Mutating: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
-        fn perform(
-            self,
-            return_value: Value,
-            variables: variable::Map,
-        ) -> Result<(Value, variable::Map)>;
-    }
-
-    pub trait Meta: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
-        fn perform(
-            self,
-            return_value: Value,
-            variables: variable::Map,
-            instruction_stack: super::Stack,
-        ) -> Result<(Value, variable::Map, super::Stack)>;
+#[derive(Clone, Copy, Debug)]
+pub struct DefaultLoader;
+impl traits::Loader for DefaultLoader {
+    fn load(&self, value: Value) -> Result<Value> {
+        Err(Error::UnloadableValue(value))
     }
 }
 

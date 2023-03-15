@@ -1,5 +1,5 @@
 use crate::{
-    instruction::{self, External, Instruction, IntoInstruction},
+    instruction::{self, traits::Loader, External, Instruction, IntoInstruction},
     value::Value,
     variable, Result,
 };
@@ -14,7 +14,12 @@ pub struct Program {
 }
 
 impl Program {
-    fn try_run(input: Value, variables: variable::Map, instruction: Instruction) -> Result<Value> {
+    fn try_run(
+        input: Value,
+        variables: variable::Map,
+        instruction: Instruction,
+        loader: &dyn Loader,
+    ) -> Result<Value> {
         // Program state
         let mut return_value = input; // Input is stored as first return value
         let mut instruction_stack = instruction::Stack::from(vec![instruction]);
@@ -42,11 +47,14 @@ impl Program {
                     )?;
                 }
                 Instruction::External(External(instr)) => {
-                    (return_value, variable_map, instruction_stack) = instr(
+                    (return_value, variable_map, instruction_stack) = instr.perform(
                         mem::take(&mut return_value),
                         mem::take(&mut variable_map),
                         mem::take(&mut instruction_stack),
                     )?;
+                }
+                Instruction::Loading(instr) => {
+                    return_value = instr.perform(return_value, loader)?
                 }
                 Instruction::Noop => (),
             }
@@ -55,7 +63,7 @@ impl Program {
         Ok(return_value)
     }
 
-    pub fn run(self, input: Value) -> Result<Value> {
+    pub fn run(self, input: Value, loader: &dyn Loader) -> Result<Value> {
         let Self {
             variables,
             instruction,
@@ -63,9 +71,9 @@ impl Program {
         } = self;
 
         if fallible {
-            Self::try_run(input, variables, instruction).or(Ok(Value::None))
+            Self::try_run(input, variables, instruction, loader).or(Ok(Value::None))
         } else {
-            Self::try_run(input, variables, instruction)
+            Self::try_run(input, variables, instruction, loader)
         }
     }
 

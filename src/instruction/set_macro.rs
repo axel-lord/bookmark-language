@@ -23,7 +23,8 @@ macro_rules! instr {
         Pure: [$($pu_name:ident($pu_ty:ty)),* $(,)?],
         Reading: [$($re_name:ident($re_ty:ty)),* $(,)?],
         Mutating: [$($mu_name:ident($mu_ty:ty)),* $(,)?],
-        Meta: [$($me_name:ident($me_ty:ty)),* $(,)?]
+        Meta: [$($me_name:ident($me_ty:ty)),* $(,)?],
+        Loading: [$($lo_name:ident($lo_ty:ty)),* $(,)?]
         ) => {
 
         $crate::instruction::set_macro::subenum!(
@@ -31,6 +32,7 @@ macro_rules! instr {
             [Pure, $([$pu_name, $pu_ty],)*],
             [Reading, $([$re_name, $re_ty],)*],
             [Meta, $([$me_name, $me_ty],)*],
+            [Loading, $([$lo_name, $lo_ty],)*],
         );
 
         impl  Mutating {
@@ -73,6 +75,21 @@ macro_rules! instr {
                 match self {
                     $(
                     Self::$pu_name(instr) => instr.perform(return_value),
+                    )*
+                }
+            }
+        }
+
+        impl Loading {
+            pub fn perform(
+                self,
+                return_value: Value,
+                loader: &dyn traits::Loader,
+            ) -> Result<Value> {
+                use traits::Loading as _;
+                match self {
+                    $(
+                    Self::$lo_name(instr) => instr.perform(return_value, loader),
                     )*
                 }
             }

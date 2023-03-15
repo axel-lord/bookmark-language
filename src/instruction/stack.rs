@@ -4,6 +4,7 @@ use super::Instruction;
 pub struct Stack(Vec<Instruction>);
 
 impl Stack {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }

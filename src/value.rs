@@ -66,16 +66,19 @@ impl Value {
     }
 
     pub fn cast(self, to: Type) -> Result<Self> {
+        use Value::{Bool, Float, Instruction, Int, List, Map, String};
+
         if Type::from(&self) == to {
             return Ok(self);
         }
 
-        use Value::{Bool, Float, Instruction, Int, List, Map, String};
         match (self, to) {
             (_, Type::None) => Ok(Value::None),
             (value, Type::Type) => Ok(Value::Type(Type::from(value))),
 
+            #[allow(clippy::cast_precision_loss)]
             (Int(value), Type::Float) => Ok(Float(value as f64)),
+            #[allow(clippy::cast_possible_truncation)]
             (Float(value), Type::Int) => Ok(Int(value.round() as i64)),
 
             (Int(value), Type::Bool) => Ok(Bool(value != 0)),
@@ -95,16 +98,16 @@ impl Value {
     }
 
     pub fn parse(self, to: Type) -> Result<Self> {
+        fn err<T>(to: Type, from: Arc<str>) -> impl Fn(T) -> Error {
+            move |_| Error::FailedParse(to, Value::String(from.clone()))
+        }
+
         let Value::String(from) = self else {
             return Err(Error::NonStringParse(self));
         };
 
         if to.is_string() {
             return Ok(Value::String(from));
-        }
-
-        fn err<T>(to: Type, from: Arc<str>) -> impl Fn(T) -> Error {
-            move |_| Error::FailedParse(to, Value::String(from.clone()))
         }
 
         match to {
@@ -393,7 +396,7 @@ impl From<BTreeMap<Arc<str>, Value>> for Value {
 
 impl From<HashMap<Arc<str>, Value>> for Value {
     fn from(value: HashMap<Arc<str>, Value>) -> Self {
-        Self::Map(BTreeMap::from_iter(value.into_iter()))
+        Self::Map(value.into_iter().collect::<BTreeMap<_, _>>())
     }
 }
 
@@ -402,6 +405,7 @@ impl From<HashMap<Arc<str>, Value>> for Value {
 macro_rules! op_fn {
     (($op_ty:path, $value_n:ident, $value_ty:ty), $(($n:ident, $op:path)),+ $(,)?) => {
         $(
+        #[must_use]
         pub fn $n($value_n: $value_ty) -> $op_ty {
             $op_ty($op, $value_n)
         }
@@ -409,6 +413,7 @@ macro_rules! op_fn {
     };
     (($op_ty:path, $value_n:ident, $value_ty:ty, $suf:ident), $(($n:ident, $op:path)),+ $(,)?) => {
         paste::paste!{$(
+        #[must_use]
         pub fn  [<$n _ $suf>] ($value_n: $value_ty) -> $op_ty {
             $op_ty($op, $value_n)
         }

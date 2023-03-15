@@ -30,14 +30,14 @@ impl Program {
             match instruction {
                 Instruction::Reading(instruction) => {
                     return_value =
-                        instruction.perform(mem::take(&mut return_value), &variable_map)?
+                        instruction.perform(mem::take(&mut return_value), &variable_map)?;
                 }
                 Instruction::Pure(instruction) => {
-                    return_value = instruction.perform(mem::take(&mut return_value))?
+                    return_value = instruction.perform(mem::take(&mut return_value))?;
                 }
                 Instruction::Mutating(instruction) => {
                     (return_value, variable_map) = instruction
-                        .perform(mem::take(&mut return_value), mem::take(&mut variable_map))?
+                        .perform(mem::take(&mut return_value), mem::take(&mut variable_map))?;
                 }
                 Instruction::Meta(instruction) => {
                     (return_value, variable_map, instruction_stack) = instruction.perform(
@@ -54,7 +54,7 @@ impl Program {
                     )?;
                 }
                 Instruction::Loading(instr) => {
-                    return_value = instr.perform(return_value, loader)?
+                    return_value = instr.perform(return_value, loader)?;
                 }
                 Instruction::Noop => (),
             }
@@ -77,6 +77,7 @@ impl Program {
         }
     }
 
+    #[must_use]
     pub fn into_fallible(self) -> Self {
         Self {
             is_fallible: true,
@@ -84,6 +85,7 @@ impl Program {
         }
     }
 
+    #[must_use]
     pub fn into_infallible(self) -> Self {
         Self {
             is_fallible: false,
@@ -91,18 +93,20 @@ impl Program {
         }
     }
 
+    #[must_use]
     pub fn is_fallible(&self) -> bool {
         self.is_fallible
     }
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct ProgramBuilder {
+pub struct Builder {
     instruction_vec: Vec<Instruction>,
     is_fallible: bool,
 }
 
-impl ProgramBuilder {
+impl Builder {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -117,8 +121,9 @@ impl ProgramBuilder {
         self
     }
 
+    #[must_use]
     pub fn build(self, variable_map: variable::Map) -> Program {
-        let ProgramBuilder {
+        let Builder {
             mut instruction_vec,
             is_fallible,
         } = self;

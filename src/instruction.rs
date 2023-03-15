@@ -74,13 +74,14 @@ Loading(rval: Value, loader: &dyn Loader) -> Value: [
 }
 
 impl Instruction {
+    #[must_use]
     pub fn flatten(self) -> Self {
         let Instruction::Meta(Meta::List(meta::List(instr_vec))) = self else {
             return self;
         };
 
         let mut out_instrs = Vec::new();
-        let mut instr_stack = Vec::from_iter(instr_vec.into_iter().rev());
+        let mut instr_stack = instr_vec.into_iter().rev().collect::<Vec<_>>();
 
         while let Some(instr) = instr_stack.pop() {
             if let Instruction::Meta(Meta::List(meta::List(instr_vec))) = instr {
@@ -132,6 +133,8 @@ impl traits::Loader for DefaultLoader {
     }
 }
 
+// the name would make no sense otherwise and conflict with into
+#[allow(clippy::module_name_repetitions)]
 pub trait IntoInstruction {
     fn into_instruction(self) -> Instruction;
 }
@@ -158,6 +161,8 @@ where
     }
 }
 
+// the macro is exported in library root.
+#[allow(clippy::module_name_repetitions)]
 #[macro_export]
 macro_rules! instruction_list {
     ($($inst:expr),* $(,)?) => {

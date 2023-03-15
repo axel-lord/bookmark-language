@@ -19,6 +19,8 @@ mod stack;
 
 pub use stack::Stack;
 
+use self::traits::Loader;
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default, IsVariant, PartialEq)]
 pub enum Instruction {
     #[default]
@@ -32,65 +34,42 @@ pub enum Instruction {
     External(External),
 }
 
-#[derive(Clone)]
-pub struct External(pub Arc<dyn traits::External>);
-
-impl Debug for External {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "External")?;
-
-        if let Some(extra_debug) = self.0.extra_debug() {
-            write!(f, "(")?;
-            extra_debug(f)?;
-            write!(f, ")")?;
-        }
-
-        Ok(())
-    }
-}
-
-impl PartialEq for External {
-    fn eq(&self, _other: &Self) -> bool {
-        false
-    }
-}
-
 set_macro::instr! {
-Pure: [
-    Sleep(pure::Sleep),
-    Debug(pure::Debug),
-    Cond(pure::Cond),
-    Put(pure::Put),
-    Coerce(pure::Coerce),
-    Parse(pure::Parse),
-    Op(pure::Op),
-    ToFallible(pure::ToFallible),
-    ToInfallible(pure::ToInfallible),
-    Not(pure::Not),
+Pure(rval: Value) -> Value: [
+    Sleep,
+    Debug,
+    Cond,
+    Put,
+    Coerce,
+    Parse,
+    Op,
+    ToFallible,
+    ToInfallible,
+    Not,
 ],
-Reading: [
-    Clone(reading::Clone),
-    GetClone(reading::GetClone),
-    OpClone(reading::OpClone),
+Reading(rval: Value, map: &variable::Map) -> Value: [
+    Clone,
+    GetClone,
+    OpClone,
 ],
-Mutating: [
-    Take(mutating::Take),
-    Assign(mutating::Assign),
-    Swap(mutating::Swap),
-    GetTake(mutating::GetTake),
-    MapAssign(mutating::MapAssign),
-    OpTake(mutating::OpTake),
+Mutating(rval: Value, map: variable::Map) -> (Value, variable::Map): [
+    Take,
+    Assign,
+    Swap,
+    GetTake,
+    MapAssign,
+    OpTake,
 ],
-Meta: [
-    List(meta::List),
-    Return(meta::Return),
-    Perform(meta::Perform),
-    PerformClone(meta::PerformClone),
-    PerformTake(meta::PerformTake),
+Meta(rval: Value, map: variable::Map, stack: Stack) -> (Value, variable::Map, Stack): [
+    List,
+    Return,
+    Perform,
+    PerformClone,
+    PerformTake,
 ],
-Loading: [
-    Program(loading::Program),
-    Load(loading::Load),
+Loading(rval: Value, loader: &dyn Loader) -> Value: [
+    Program,
+    Load,
 ]
 }
 
@@ -119,6 +98,29 @@ impl Instruction {
                 .expect("should never fail since we know the size is 1"),
             _ => meta::List(out_instrs).into(),
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct External(pub Arc<dyn traits::External>);
+
+impl Debug for External {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "External")?;
+
+        if let Some(extra_debug) = self.0.extra_debug() {
+            write!(f, "(")?;
+            extra_debug(f)?;
+            write!(f, ")")?;
+        }
+
+        Ok(())
+    }
+}
+
+impl PartialEq for External {
+    fn eq(&self, _other: &Self) -> bool {
+        false
     }
 }
 

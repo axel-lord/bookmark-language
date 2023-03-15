@@ -1,4 +1,4 @@
-use super::{loading::Program, traits::Pure, IntoInstruction};
+use super::{instr_traits::Pure, loading::Program, IntoInstruction};
 use crate::{
     value::{self, def_op_fn, Value},
     Error, Result,

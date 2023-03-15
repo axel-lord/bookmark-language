@@ -1,6 +1,5 @@
 macro_rules! subenum {
-    ($([$ename:ident, $([$sname:ident, $ty:ty],)*],)* ) => {
-        $(
+    ($ename:ident, $($sname:ident, $ty:ty,)*) => {
         #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
         pub enum $ename {
             $(
@@ -14,103 +13,67 @@ macro_rules! subenum {
             }
         }
         )*
-        )*
+    };
+}
+
+macro_rules! subenum_gen {
+    ($ename:ident, $($sname:ident),*) => {
+        paste::paste! {
+            $crate::instruction::set_macro::subenum!(
+                $ename,
+                $(
+                    $sname,
+                    [< $ename:lower >] :: $sname,
+                )*
+            );
+        }
     };
 }
 
 macro_rules! instr {
     (
-        Pure: [$($pu_name:ident($pu_ty:ty)),* $(,)?],
-        Reading: [$($re_name:ident($re_ty:ty)),* $(,)?],
-        Mutating: [$($mu_name:ident($mu_ty:ty)),* $(,)?],
-        Meta: [$($me_name:ident($me_ty:ty)),* $(,)?],
-        Loading: [$($lo_name:ident($lo_ty:ty)),* $(,)?]
+        $(
+            $sect:ident($($in_n:ident: $in_ty:ty),* $(,)? ) -> $out_ty:ty: [
+                $($name:ident),+ $(,)?
+            ]
+        ),* $(,)?
         ) => {
 
-        $crate::instruction::set_macro::subenum!(
-            [Mutating, $([$mu_name, $mu_ty],)*],
-            [Pure, $([$pu_name, $pu_ty],)*],
-            [Reading, $([$re_name, $re_ty],)*],
-            [Meta, $([$me_name, $me_ty],)*],
-            [Loading, $([$lo_name, $lo_ty],)*],
+        $(
+        $crate::instruction::set_macro::subenum_gen!(
+            $sect, $($name),*
         );
 
-        impl  Mutating {
-            pub fn perform(
-                self,
-                return_value: Value,
-                variables: variable::Map
-            ) -> Result<(Value, variable::Map)> {
-                use traits::Mutating as _;
-                match self {
-                    $(
-                    Self::$mu_name(instr) => instr.perform(return_value, variables),
-                    )*
-                }
+        impl $sect {
+            pub fn perform(self, $($in_n: $in_ty),*) -> Result<$out_ty> {
+                 use instr_traits::$sect as _;
+                 let perf_in = ($($in_n,)*);
+
+                 match self {
+                     $(
+                     Self::$name(instr) => instr.perform_tup(perf_in),
+                     )*
+                 }
             }
         }
+        )*
+        pub mod instr_traits {
+            use super::*;
 
-        impl Meta {
-            pub fn perform(
-                self,
-                return_value: Value,
-                variables: variable::Map,
-                instruction_stack: Stack,
-            ) -> Result<(Value, variable::Map, Stack)> {
-                use traits::Meta as _;
-                match self {
-                    $(
-                    Self::$me_name(instr) => instr.perform(return_value, variables, instruction_stack),
-                    )*
+            $(
+            pub trait $sect: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
+                fn perform(self, $($in_n: $in_ty),*) -> Result<$out_ty>;
+
+                fn perform_tup(self, tup: ($($in_ty,)*)) -> Result<$out_ty> {
+                    let ($($in_n,)*): ($($in_ty,)*) = tup;
+                    self.perform($($in_n),*)
                 }
             }
-        }
-
-        impl Pure {
-            pub fn perform(
-                self,
-                return_value: Value,
-            ) -> Result<Value> {
-                use traits::Pure as _;
-                match self {
-                    $(
-                    Self::$pu_name(instr) => instr.perform(return_value),
-                    )*
-                }
-            }
-        }
-
-        impl Loading {
-            pub fn perform(
-                self,
-                return_value: Value,
-                loader: &dyn traits::Loader,
-            ) -> Result<Value> {
-                use traits::Loading as _;
-                match self {
-                    $(
-                    Self::$lo_name(instr) => instr.perform(return_value, loader),
-                    )*
-                }
-            }
-        }
-
-        impl Reading {
-            pub fn perform(
-                self,
-                return_value: Value,
-                variables: &variable::Map,
-            ) -> Result<Value> {
-                use traits::Reading as _;
-                match self {
-                    $(
-                    Self::$re_name(instr) => instr.perform(return_value, variables),
-                    )*
-                }
-            }
+            )*
         }
     };
 }
 
 pub(crate) use instr;
 pub(crate) use subenum;
+pub(crate) use subenum_gen;

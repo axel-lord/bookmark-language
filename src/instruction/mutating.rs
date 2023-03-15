@@ -1,4 +1,4 @@
-use super::traits::Mutating;
+use super::instr_traits::Mutating;
 use crate::{
     value::{self, def_op_fn, Value},
     variable, Result,

@@ -1,4 +1,4 @@
-use super::traits::Reading;
+use super::instr_traits::Reading;
 use crate::{
     value::{self, def_op_fn, Value},
     variable, Result,

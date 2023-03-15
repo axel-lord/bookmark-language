@@ -63,7 +63,7 @@ pub fn put(value: impl Into<Value>) -> Put {
     Put(value.into())
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Coerce(pub value::Type);
 impl Pure for Coerce {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -71,7 +71,7 @@ impl Pure for Coerce {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Parse(pub value::Type);
 impl Pure for Parse {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -90,7 +90,7 @@ impl Pure for Op {
 
 def_op_fn!(Op, value, Value);
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct ToFallible;
 impl Pure for ToFallible {
     fn perform(self, return_value: Value) -> Result<Value> {
@@ -111,7 +111,7 @@ impl Pure for ToFallible {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct ToInfallible;
 impl Pure for ToInfallible {
     fn perform(self, return_value: Value) -> Result<Value> {

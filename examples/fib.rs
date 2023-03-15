@@ -1,7 +1,7 @@
 use bookmark_language::{
     instruction::{meta, mutating, pure, reading, DefaultLoader},
     instruction_list,
-    program::ProgramBuilder,
+    program::Builder,
     value::Value,
     variable,
 };
@@ -31,7 +31,7 @@ enum Error {
 fn main() -> Result<(), Error> {
     let Cli { file: file_path } = Cli::parse();
 
-    let mut p_builder = ProgramBuilder::new();
+    let mut p_builder = Builder::new();
     let mut v_builder = variable::MapBuilder::new();
 
     let sleep_duration = Value::Float(0.0);

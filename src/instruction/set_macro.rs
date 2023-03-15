@@ -1,5 +1,6 @@
 macro_rules! subenum {
     ($ename:ident, $($sname:ident, $ty:ty,)*) => {
+        #[allow(missing_copy_implementations)]
         #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
         pub enum $ename {
             $(
@@ -45,6 +46,7 @@ macro_rules! instr {
         );
 
         impl $sect {
+            #[doc = "# Errors\nIf the performed instruction errors,"]
             pub fn perform(self, $($in_n: $in_ty),*) -> Result<$out_ty> {
                  use instr_traits::$sect as _;
                  let perf_in = ($($in_n,)*);
@@ -62,8 +64,10 @@ macro_rules! instr {
 
             $(
             pub trait $sect: Debug + Serialize + Deserialize<'static> + Clone + PartialEq {
+                #[doc = "# Errors\nIf the performed instruction errors,"]
                 fn perform(self, $($in_n: $in_ty),*) -> Result<$out_ty>;
 
+                #[doc = "# Errors\nIf the performed instruction errors,"]
                 fn perform_tup(self, tup: ($($in_ty,)*)) -> Result<$out_ty> {
                     let ($($in_n,)*): ($($in_ty,)*) = tup;
                     self.perform($($in_n),*)

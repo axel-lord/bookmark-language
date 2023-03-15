@@ -6,7 +6,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::mem;
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Take(pub variable::Id);
 impl Mutating for Take {
     fn perform(
@@ -18,7 +18,7 @@ impl Mutating for Take {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Assign(pub variable::Id);
 impl Mutating for Assign {
     fn perform(
@@ -31,7 +31,7 @@ impl Mutating for Assign {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct Swap(pub variable::Id);
 impl Mutating for Swap {
     fn perform(
@@ -46,7 +46,7 @@ impl Mutating for Swap {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub struct GetTake(pub variable::Id);
 impl Mutating for GetTake {
     fn perform(

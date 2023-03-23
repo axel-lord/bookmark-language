@@ -14,7 +14,7 @@ impl Loading for Program {
         arc_prgr
             .pipe_ref_mut(Arc::make_mut)
             .pipe(mem::take)
-            .run(return_value, loader)
+            .run_to_completion(return_value, loader)
     }
 }
 

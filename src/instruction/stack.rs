@@ -1,6 +1,6 @@
 use super::Instruction;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Stack(Vec<Instruction>);
 
 impl Stack {

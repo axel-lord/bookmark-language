@@ -13,67 +13,91 @@ pub struct Program {
     is_fallible: bool,
 }
 
-impl Program {
-    fn try_run(
-        input: Value,
-        variables: variable::Map,
-        instruction: Instruction,
+#[derive(Debug, Clone, PartialEq)]
+pub enum Running {
+    Active(variable::Map, instruction::Stack, Value),
+    Finished(Result<Value>),
+}
+
+impl Default for Running {
+    fn default() -> Self {
+        Self::Finished(Ok(Value::None))
+    }
+}
+
+impl Running {
+    fn handle_instruction(
+        instr: Instruction,
+        value: Value,
+        variables: &mut variable::Map,
+        stack: &mut instruction::Stack,
         loader: &dyn Loader,
     ) -> Result<Value> {
-        // Program state
-        let mut return_value = input; // Input is stored as first return value
-        let mut instruction_stack = instruction::Stack::from(vec![instruction]);
-        let mut variable_map = variables;
-
-        // Pop and execute instructions
-        while let Some(instruction) = instruction_stack.pop() {
-            match instruction {
-                Instruction::Reading(instruction) => {
-                    return_value =
-                        instruction.perform(mem::take(&mut return_value), &variable_map)?;
-                }
-                Instruction::Pure(instruction) => {
-                    return_value = instruction.perform(mem::take(&mut return_value))?;
-                }
-                Instruction::Mutating(instruction) => {
-                    (return_value, variable_map) = instruction
-                        .perform(mem::take(&mut return_value), mem::take(&mut variable_map))?;
-                }
-                Instruction::Meta(instruction) => {
-                    (return_value, variable_map, instruction_stack) = instruction.perform(
-                        mem::take(&mut return_value),
-                        mem::take(&mut variable_map),
-                        mem::take(&mut instruction_stack),
-                    )?;
-                }
-                Instruction::External(External(instr)) => {
-                    (return_value, variable_map, instruction_stack) = instr.perform(
-                        mem::take(&mut return_value),
-                        mem::take(&mut variable_map),
-                        mem::take(&mut instruction_stack),
-                    )?;
-                }
-                Instruction::Loading(instr) => {
-                    return_value = instr.perform(return_value, loader)?;
-                }
-                Instruction::Noop => (),
+        let mut return_value = Value::None;
+        match instr {
+            Instruction::Noop => (),
+            Instruction::Pure(instr) => return_value = instr.perform(value)?,
+            Instruction::Reading(instr) => return_value = instr.perform(value, variables)?,
+            Instruction::Mutating(instr) => {
+                (return_value, *variables) = instr.perform(value, mem::take(variables))?;
+            }
+            Instruction::Meta(instr) => {
+                (return_value, *variables, *stack) =
+                    instr.perform(value, mem::take(variables), mem::take(stack))?;
+            }
+            Instruction::Loading(instr) => return_value = instr.perform(value, loader)?,
+            Instruction::External(External(instr)) => {
+                (return_value, *variables, *stack) =
+                    instr.perform(value, mem::take(variables), mem::take(stack))?;
             }
         }
-
         Ok(return_value)
     }
 
-    pub fn run(self, input: Value, loader: &dyn Loader) -> Result<Value> {
-        let Self {
-            variables,
-            instruction,
-            is_fallible: fallible,
-        } = self;
+    #[must_use]
+    pub fn progress(self, loader: &dyn Loader) -> Self {
+        if let Self::Active(mut variables, mut stack, value) = self {
+            let Some(instr) = stack.pop() else {
+                return Self::Finished(Ok(value));
+            };
 
-        if fallible {
-            Self::try_run(input, variables, instruction, loader).or(Ok(Value::None))
+            match Self::handle_instruction(instr, value, &mut variables, &mut stack, loader) {
+                Ok(value) => Self::Active(variables, stack, value),
+                Err(err) => Self::Finished(Err(err)),
+            }
         } else {
-            Self::try_run(input, variables, instruction, loader)
+            self
+        }
+    }
+
+    pub fn progress_in_place(&mut self, loader: &dyn Loader) {
+        *self = mem::take(self).progress(loader);
+    }
+}
+
+impl Program {
+    fn try_run_to_completion(self, input: Value, loader: &dyn Loader) -> Result<Value> {
+        let mut running = self.run(input);
+
+        loop {
+            match running.progress(loader) {
+                Running::Finished(value) => break value,
+                active @ Running::Active(..) => running = active,
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn run(self, input: Value) -> Running {
+        Running::Active(self.variables, vec![self.instruction].into(), input)
+    }
+
+    pub fn run_to_completion(self, input: Value, loader: &dyn Loader) -> Result<Value> {
+        if self.is_fallible {
+            self.try_run_to_completion(input, loader)
+                .or(Ok(Value::None))
+        } else {
+            self.try_run_to_completion(input, loader)
         }
     }
 

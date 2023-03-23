@@ -23,7 +23,7 @@ pub mod variable;
 pub type Result<T> = result::Result<T, Error>;
 
 /// Error type in use by library.
-#[derive(Debug, Error, IsVariant)]
+#[derive(Debug, Error, IsVariant, PartialEq, Clone)]
 pub enum Error {
     /// Used when an attempt is made to get access to a variable using an invalid id.
     #[error("{0:?} is not the id of a variable in use")]

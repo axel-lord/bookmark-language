@@ -76,7 +76,9 @@ fn main() -> Result<(), Error> {
     if let Some(file_path) = file_path {
         serde_json::to_writer_pretty(BufWriter::new(File::create(file_path)?), &program)?;
     } else {
-        program.run(Value::None, &DefaultLoader).map(|_| ())?;
+        program
+            .run_to_completion(Value::None, &DefaultLoader)
+            .map(|_| ())?;
     }
     Ok(())
 }
